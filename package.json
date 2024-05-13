@@ -1,0 +1,8 @@
+{
+  "name": "acurast-example-jobs",
+  "version": "1.0.0",
+  "author": "Papers AG <contact@papers.ch> (https://papers.ch)",
+  "description": "Example Acurast Jobs",
+  "license": "ISC",
+  "private": true
+}
