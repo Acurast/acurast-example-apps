@@ -4,7 +4,9 @@ This repository contains example job scripts that can be executed on Acurast pro
 
 ## Job Runtime Environment
 
-The scripts in this repository are designed to be executed on Acurast processors, which run Node.js version 18.17.2. It's important to ensure that any script deployed to the processors is compatible with this version of Node.js. Please make sure that your scripts adhere to this requirement to ensure proper execution within the Acurast environment.
+Acurast processors run **Node.js v18.17.2**.
+
+It's important to ensure that any script deployed to the processors is compatible with this version of Node.js. Please make sure that your scripts adhere to this requirement to ensure proper execution within the Acurast environment.
 
 ## Overview
 
