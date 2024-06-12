@@ -1,7 +1,7 @@
 {
-  "name": "job-external-deps",
+  "name": "app-external-deps",
   "version": "1.0.0",
-  "description": "An example of a job that depends on modules other than Node.js or Acurast built-ins.",
+  "description": "An example of an app that depends on modules other than Node.js or Acurast built-ins.",
   "author": "Papers AG <contact@papers.ch> (https://papers.ch)",
   "license": "ISC",
   "scripts": {
