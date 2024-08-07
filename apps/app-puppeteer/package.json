@@ -1,0 +1,27 @@
+{
+  "name": "app-puppeteer",
+  "version": "0.0.1",
+  "description": "",
+  "main": "dist/bundle.js",
+  "scripts": {
+    "start": "npm run build && node ./dist/bundle.js",
+    "build": "webpack",
+    "bundle": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "deploy": "npm run bundle && acurast deploy"
+  },
+  "author": "Andreas Gassmann <andy@acurast.com>",
+  "license": "MIT",
+  "dependencies": {
+    "bufferutil": "^4.0.8",
+    "puppeteer-core": "^20.9.0",
+    "utf-8-validate": "^6.0.4"
+  },
+  "devDependencies": {
+    "@acurast/cli": "^0.0.7",
+    "typescript": "^5.2.2",
+    "ts-loader": "^9.5.1",
+    "webpack": "^5.91.0",
+    "webpack-cli": "^5.1.4"
+  }
+}
