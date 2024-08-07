@@ -1,0 +1,29 @@
+{
+  "name": "app-wasm",
+  "version": "0.0.1",
+  "description": "",
+  "main": "dist/bundle.js",
+  "scripts": {
+    "start": "npm run build && node ./dist/bundle.js",
+    "build": "webpack",
+    "build:assembly": "clang --target=wasm32-unknown-wasi --no-standard-libraries -Wl,--export-all -Wl,--no-entry -o ./src/add.wasm ./src/add.c",
+    "bundle": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "deploy": "npm run bundle && acurast deploy"
+  },
+  "author": "Andreas Gassmann <andy@acurast.com>",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.7.2",
+    "debug": "^4.3.5",
+    "typescript": "^5.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "file-loader": "^6.2.0",
+    "prettier": "^3.3.2",
+    "ts-loader": "^9.5.1",
+    "webpack": "^5.91.0",
+    "webpack-cli": "^5.1.4"
+  }
+}
