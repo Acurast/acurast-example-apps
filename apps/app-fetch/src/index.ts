@@ -1,42 +1,40 @@
-// We do this so the typescript compiler doesn't complain about the missing package
-const device = eval("require")("@acurast-job/device");
+const WEBHOOK_URL = "REPLACE_ME"; // TODO: Replace with your https://webhook.site/ URL
+
+const BASE_URL = "https://min-api.cryptocompare.com";
+const SYMBOL = "BTC";
+const TARGET_CURRENCY = "USD";
 
 declare const _STD_: any;
 
-// A webhook URL to send the sum to
-// For testing, you can go to https://webhook.site/ to create your own webhook for testing
-const WEBHOOK_URL = "https://webhook.site/ff06a603-e955-4f65-a87f-3d08d8c17b07";
+if (typeof _STD_ === "undefined") {
+  // If _STD_ is not defined, we know it's not running in the Acurast Cloud.
+  // Define _STD_ here for local testing.
+  console.log("Running in local environment");
+  (global as any)._STD_ = {
+    app_info: { version: "local" },
+    job: { getId: () => "local" },
+    device: { getAddress: () => "local" },
+  };
+}
 
-const API_URL = "https://min-api.cryptocompare.com";
-const TARGET_CURRENCY = "USD";
-const SYMBOL = "BTC";
-
-console.log(`${API_URL}/data/price?fsym=${SYMBOL}&tsyms=${TARGET_CURRENCY}`);
-fetch(`${API_URL}/data/price?fsym=${SYMBOL}&tsyms=${TARGET_CURRENCY}`)
+fetch(`${BASE_URL}/data/price?fsym=${SYMBOL}&tsyms=${TARGET_CURRENCY}`)
   .then((response) => response.json())
   .then((data) => {
-    // console.log("Success1:", data);
-
     const price = data[TARGET_CURRENCY];
-
-    console.log("Price: ", price);
-
-    // Send the sum to a webhook
-    fetch(WEBHOOK_URL, {
+    return fetch(WEBHOOK_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         price,
         timestamp: Date.now(),
         acurast: {
           version: _STD_.app_info.version,
-          deviceAddress: device.getAddress(),
+          deploymentId: _STD_.job.getId(),
+          deviceAddress: _STD_.device.getAddress(),
         },
       }),
     })
-      .then((data) => console.log("Success:", data.status, data.statusText))
-      .catch((error) => console.error("Error2:", error));
+      .then((postResponse) => console.log("Success:", postResponse.status))
+      .catch((error) => console.error("Error posting data:", error));
   })
-  .catch((error) => console.error("Error1:", error));
+  .catch((error) => console.error("Error getting data:", error));
