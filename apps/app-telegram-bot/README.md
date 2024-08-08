@@ -27,7 +27,4 @@ This will create the file `dist/bundle.js`.
 
 ### Deployment on Acurast
 
-Head over to https://console.acurast.com/create and copy the contents of the file `dist/bundle.js` into the code field and deploy the app.
-
-> [!NOTE]
-> We will soon introduce the Acurast CLI. With the CLI, you will be able to deploy the app from within your IDE. Stay tuned for updates around the CLI!
+The deployment is done with the Acurast CLI. Make sure to create a `.env` file according to the [docs](https://github.com/Acurast/acurast-cli?tab=readme-ov-file#example-configuration) and adjust the `acurast.json` configuration as you wish. Then run `npm run deploy` to deploy the code.
