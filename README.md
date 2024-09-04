@@ -19,9 +19,10 @@ An overview of the examples available in this repository.
 
 This list contains apps by other projects and the community. Feel free to open a PR to add yours!
 
-| Project                                                  | Description                                                   | Features                              |
-| -------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------- |
-| [tzbtc](https://github.com/Acurast/acurast-tzbtc-script) | A simple example to show how to include external dependencies | TS, Websocket, BTC, Tezos, Unit Tests |
+| Project                                                             | Description                                                                                                                               | Features                              |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| [tzbtc](https://github.com/Acurast/acurast-tzbtc-script)            | An advanced Acurast app used by [tzbtc.io](https://tzbtc.io). tzBTC delivers the power of Bitcoin as a token to the world of blockchains. | TS, Websocket, BTC, Tezos, Unit Tests |
+| [oracle-service](https://github.com/Acurast/acurast-oracle-service) | An advanced Acurast app that is used to build a reliable oracle service                                                                   | TS, Websocket                         |
 
 ## Acurast CLI
 
