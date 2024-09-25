@@ -22,7 +22,7 @@ This list contains apps by other projects and the community. Feel free to open a
 | Project                                                             | Description                                                                                                                               | Features                              |
 | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
 | [tzbtc](https://github.com/Acurast/acurast-tzbtc-script)            | An advanced Acurast app used by [tzbtc.io](https://tzbtc.io). tzBTC delivers the power of Bitcoin as a token to the world of blockchains. | TS, Websocket, BTC, Tezos, Unit Tests |
-| [oracle-service](https://github.com/Acurast/acurast-oracle-service) | An advanced Acurast app that is used to build a reliable oracle service                                                                   | TS, Websocket                         |
+| [acelon](https://github.com/acelonoracle/acelon-oracle) | An advanced Acurast app that is used to build a reliable oracle service                                                                   | TS, Websocket                         |
 | [aleph-zero-ink](https://github.com/Acurast/aleph-zero-example-app) | An app that interacts with an ink! contract on Aleph Zero                                                                                 | TS, Substrate                         |
 
 ## Acurast CLI
