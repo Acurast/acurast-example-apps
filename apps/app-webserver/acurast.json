@@ -10,7 +10,7 @@
       },
       "execution": {
         "type": "onetime",
-        "maxExecutionTimeInMs": 30000
+        "maxExecutionTimeInMs": 3600000
       },
       "maxAllowedStartDelayInMs": 10000,
       "usageLimit": {
