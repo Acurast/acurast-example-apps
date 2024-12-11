@@ -4,14 +4,16 @@ import { FormsModule } from '@angular/forms';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
+import { keys } from '@libp2p/crypto';
 import { dcutr } from '@libp2p/dcutr';
 import { Identify, identify } from '@libp2p/identify';
 import { enable, logger } from '@libp2p/logger';
-import { peerIdFromString } from '@libp2p/peer-id';
+import { peerIdFromPublicKey, peerIdFromString } from '@libp2p/peer-id';
 import { ping, PingService } from '@libp2p/ping';
 import { webSockets } from '@libp2p/websockets';
 import * as filters from '@libp2p/websockets/filters';
 import { multiaddr } from '@multiformats/multiaddr';
+import { Buffer } from 'buffer';
 import { byteStream } from 'it-byte-stream';
 import { createLibp2p, Libp2p } from 'libp2p';
 
@@ -48,6 +50,9 @@ export class AppComponent implements OnInit {
     }),
   );
   protocols: string[] = [PROTOCOL_ECHO];
+
+  publicKeyToTransform?: string;
+  peerIdFromPublicKey?: string;
 
   address?: string;
   connectedPeers: Map<string, boolean> = new Map();
@@ -139,5 +144,13 @@ export class AppComponent implements OnInit {
     await stream.close({ signal });
 
     this.response = new TextDecoder().decode(output.subarray());
+  }
+
+  getPeerId(): void {
+    if (this.publicKeyToTransform === undefined) return;
+
+    this.peerIdFromPublicKey = peerIdFromPublicKey(
+      keys.publicKeyFromRaw(Buffer.from(this.publicKeyToTransform, 'hex')),
+    ).toString();
   }
 }
