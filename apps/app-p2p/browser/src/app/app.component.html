@@ -1,0 +1,120 @@
+<main class="flex justify-center mt-20 mb-20 p-3 bg-black">
+  <div class="flex flex-col gap-10">
+    <p class="text-3xl text-white">Acurast P2P</p>
+    <div class="flex flex-col gap-4">
+      <div class="flex felx-row gap-2">
+        <p class="text-white">Peer ID</p>
+        <p class="text-primary-900">{{ peerId }}</p>
+      </div>
+      @if (relays.size > 0) {
+        <div class="flex felx-row gap-2">
+          <p class="text-white">Relays</p>
+          <div class="felx flex-col gap-2">
+            <ng-container *ngFor="let relay of relays | keyvalue">
+              <div class="flex felx-row gap-10">
+                <p
+                  [ngClass]="{
+                    grow: true,
+                    'text-primary-900': relay.value,
+                    'text-gray-500': !relay.value,
+                  }"
+                >
+                  {{ relay.key }}
+                </p>
+                @if (!relay.value) {
+                  <button class="text-white" (click)="dial(relay.key)">
+                    Connect
+                  </button>
+                }
+              </div>
+            </ng-container>
+          </div>
+        </div>
+      }
+    </div>
+    <div class="flex flex-col gap-2">
+      <p class="text-xl text-white">Connect</p>
+      <div class="flex flex-row gap-10 items-center">
+        <input
+          type="text"
+          class="grow block rounded-md border-0 py-1.5 pl-3 pr-10 bg-slate-800 text-gray-300 ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-primary-900 sm:text-sm sm:leading-6"
+          placeholder="Address"
+          [(ngModel)]="address"
+        />
+        <button
+          class="rounded-md bg-primary-900 w-32 px-3.5 py-2.5 text-sm font-semibold text-black shadow-sm hover:bg-primary-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 cursor-pointer"
+          (click)="dial(address)"
+        >
+          Connect
+        </button>
+      </div>
+      @if (connectedPeers.size > 0) {
+        <div class="flex felx-row gap-2">
+          <p class="text-white">Peers</p>
+          <div class="felx flex-col gap-2">
+            <ng-container *ngFor="let peer of connectedPeers | keyvalue">
+              <div class="flex felx-row gap-10">
+                <p
+                  [ngClass]="{
+                    grow: true,
+                    'text-primary-900': peer.value,
+                    'text-gray-500': !peer.value,
+                  }"
+                >
+                  {{ peer.key }}
+                </p>
+              </div>
+            </ng-container>
+          </div>
+        </div>
+      }
+    </div>
+    <div class="flex flex-col gap-4">
+      <p class="text-xl text-white">Message</p>
+      <div class="flex flex-row gap-2">
+        <select
+          id="location"
+          name="location"
+          class="basis-1/4 block rounded-md border-0 py-1.5 pl-3 pr-10 bg-slate-800 text-gray-300 ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-primary-900 sm:text-sm sm:leading-6 cursor-pointer"
+          (change)="setProtocol($event)"
+        >
+          <option
+            *ngFor="let protocol of protocols"
+            [selected]="this.protocol === protocol"
+          >
+            {{ protocol }}
+          </option>
+        </select>
+        <input
+          type="text"
+          class="grow block rounded-md border-0 py-1.5 pl-3 pr-10 bg-slate-800 text-gray-300 ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-primary-900 sm:text-sm sm:leading-6"
+          placeholder="Peer ID"
+          [(ngModel)]="receiver"
+        />
+      </div>
+      <textarea
+        class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 bg-slate-800 text-gray-300 ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-primary-900 sm:text-sm sm:leading-6"
+        rows="5"
+        placeholder="Request"
+        [(ngModel)]="request"
+      ></textarea>
+      <div class="flex flex-row justify-end items-center">
+        <button
+          class="rounded-md bg-primary-900 w-32 px-3.5 py-2.5 text-sm font-semibold text-black shadow-sm hover:bg-primary-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 cursor-pointer"
+          (click)="sendRequest()"
+        >
+          Send
+        </button>
+      </div>
+    </div>
+    <div class="flex flex-col gap-2">
+      <textarea
+        disabled
+        class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 bg-slate-800 text-gray-300 ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-primary-900 sm:text-sm sm:leading-6"
+        rows="5"
+        placeholder="Response"
+        [(ngModel)]="response"
+      ></textarea>
+    </div>
+  </div>
+</main>
