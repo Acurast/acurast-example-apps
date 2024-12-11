@@ -28,3 +28,7 @@ This will create the file `./dist/bundle.js`.
 ### Deployment on Acurast
 
 The deployment is done with the Acurast CLI. Make sure to create a `.env` file according to the [docs](https://github.com/Acurast/acurast-cli?tab=readme-ov-file#example-configuration) and adjust the `acurast.json` configuration as you wish. Then run `npm run deploy` to deploy the code.
+
+### Test
+
+To test the deployment, please run the example browser project located in the browser directory.
