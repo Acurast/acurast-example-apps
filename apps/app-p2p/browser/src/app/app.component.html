@@ -22,9 +22,11 @@
                   {{ relay.key }}
                 </p>
                 @if (!relay.value) {
-                  <button class="text-white" (click)="dial(relay.key)">
+                  <button class="w-16 text-white" (click)="dial(relay.key)">
                     Connect
                   </button>
+                } @else {
+                  <div class="w-16"></div>
                 }
               </div>
             </ng-container>
