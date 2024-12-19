@@ -20,7 +20,7 @@ import { createLibp2p, Libp2p } from 'libp2p';
 const PROTOCOL_ECHO: string = '/echo/1';
 const RELAYS: string[] = [
   '/ip4/34.65.182.19/tcp/30093/ws/p2p/12D3KooWKGfsBKUArB33AyHJksf9aWLvy4PD5NTbwp1gpc1GDa2k',
-  '/ip4/34.65.238.238/tcp/30083/ws/p2p/12D3KooWSdrLcPjDBMyGfT5NehWaJvjSLEDKARuUS8eycQinRBzh',
+  '/ip4/34.65.160.177/tcp/30083/ws/p2p/12D3KooWSdrLcPjDBMyGfT5NehWaJvjSLEDKARuUS8eycQinRBzh',
 ];
 
 const log = logger('browser');
