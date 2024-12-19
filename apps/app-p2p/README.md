@@ -31,4 +31,4 @@ The deployment is done with the Acurast CLI. Make sure to create a `.env` file a
 
 ### Test
 
-To test the deployment, please run the example browser project located in the browser directory.
+To test the deployment, please see the example browser project located in the browser directory.
