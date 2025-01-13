@@ -10,3 +10,11 @@ export interface Message {
   protocol: string;
   bytes: string;
 }
+
+export interface Stream {
+  protocol: string;
+  peer: Peer;
+  read: (n: number) => Promise<Buffer>;
+  write: (bytes: Uint8Array | string) => Promise<void>;
+  close: () => Promise<void>;
+}
