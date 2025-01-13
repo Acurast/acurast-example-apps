@@ -11,8 +11,9 @@ An overview of the examples available in this repository.
 | [env-vars](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-env-vars)           | Use secret environment variables in your deployments          | TS, CLI, Environment Variables     |
 | [external-deps](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-external-deps) | A simple example to show how to include external dependencies | TS                                 |
 | [fetch](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-fetch)                 | Use fetch to get data from an API and post it to another API  | TS, CLI, Acurast Runtime Variables |
-| [heic-to-png](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-heic-to-png)      | Convert HEIC images to PNG                                  | TS, CLI                            |
-| [llm](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-llm)                    | Run an LLM on Acurast                                                     | TS, CLI, LLM Server, Webserver                            |
+| [heic-to-png](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-heic-to-png)     | Convert HEIC images to PNG                                    | TS, CLI                            |
+| [llm](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-llm)                     | Run an LLM on Acurast                                         | TS, CLI, LLM Server, Webserver     |
+| [p2p](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-p2p)                     | Connect to a processor over a P2P network                     | TS, CLI, P2P                       |
 | [puppeteer](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-puppeteer)         | Scrape the web using Puppeteer                                | TS, CLI, Multiple Deployments      |
 | [telegram-bot](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-telegram-bot)   | Run a telegram-bot                                            | TS, CLI                            |
 | [wasm](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-wasm)                   | Run wasm                                                      | TS, CLI, WASM                      |
@@ -25,7 +26,7 @@ This list contains apps by other projects and the community. Feel free to open a
 | Project                                                             | Description                                                                                                                               | Features                              |
 | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
 | [tzbtc](https://github.com/Acurast/acurast-tzbtc-script)            | An advanced Acurast app used by [tzbtc.io](https://tzbtc.io). tzBTC delivers the power of Bitcoin as a token to the world of blockchains. | TS, Websocket, BTC, Tezos, Unit Tests |
-| [acelon](https://github.com/acelonoracle/acelon-oracle) | An advanced Acurast app that is used to build a reliable oracle service                                                                   | TS, Websocket                         |
+| [acelon](https://github.com/acelonoracle/acelon-oracle)             | An advanced Acurast app that is used to build a reliable oracle service                                                                   | TS, Websocket                         |
 | [aleph-zero-ink](https://github.com/Acurast/aleph-zero-example-app) | An app that interacts with an ink! contract on Aleph Zero                                                                                 | TS, Substrate                         |
 
 ## Acurast CLI
