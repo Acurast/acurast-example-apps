@@ -1,30 +1,30 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { noise } from '@chainsafe/libp2p-noise';
-import { yamux } from '@chainsafe/libp2p-yamux';
-import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
-import { keys } from '@libp2p/crypto';
-import { dcutr } from '@libp2p/dcutr';
-import { Identify, identify } from '@libp2p/identify';
+import { Connection, Stream } from '@libp2p/interface';
 import { enable, logger } from '@libp2p/logger';
-import { peerIdFromPublicKey, peerIdFromString } from '@libp2p/peer-id';
-import { ping, PingService } from '@libp2p/ping';
-import { webSockets } from '@libp2p/websockets';
-import * as filters from '@libp2p/websockets/filters';
-import { multiaddr } from '@multiformats/multiaddr';
-import { Buffer } from 'buffer';
-import { byteStream } from 'it-byte-stream';
-import { createLibp2p, Libp2p } from 'libp2p';
-
-const PROTOCOL_ECHO: string = '/echo/1';
-const RELAYS: string[] = [
-  '/ip4/34.65.182.19/tcp/30093/ws/p2p/12D3KooWKGfsBKUArB33AyHJksf9aWLvy4PD5NTbwp1gpc1GDa2k',
-  '/ip4/34.65.160.177/tcp/30083/ws/p2p/12D3KooWSdrLcPjDBMyGfT5NehWaJvjSLEDKARuUS8eycQinRBzh',
-];
+import { ByteStream, byteStream } from 'it-byte-stream';
+import {
+  connect,
+  createPeer,
+  messageProtocols,
+  openStream,
+  Peer,
+  peerIdFromHexPublicKey,
+  RELAYS,
+  sendMessage,
+  streamProtocols,
+  streamRead,
+  streamWrite,
+} from './p2p/libp2p';
 
 const log = logger('browser');
 enable('*');
+
+enum Tab {
+  MESSAGE = 'Message',
+  STREAM = 'Stream',
+}
 
 @Component({
   selector: 'app-root',
@@ -34,22 +34,18 @@ enable('*');
   styleUrl: './app.component.css',
 })
 export class AppComponent implements OnInit {
-  peer?: Libp2p<{
-    dcutr: any;
-    identify: Identify;
-    ping: PingService;
-    echo: {
-      protocol: string;
-    };
-  }>;
+  peer?: Peer;
   peerId?: string;
+
+  connections: Map<string, Connection> = new Map();
 
   relays: Map<string, boolean> = new Map(
     RELAYS.map((relay) => {
       return [relay, false];
     }),
   );
-  protocols: string[] = [PROTOCOL_ECHO];
+  messageProtocols: string[] = messageProtocols;
+  streamProtocols: string[] = streamProtocols;
 
   publicKeyToTransform?: string;
   peerIdFromPublicKey?: string;
@@ -57,32 +53,23 @@ export class AppComponent implements OnInit {
   address?: string;
   connectedPeers: Map<string, boolean> = new Map();
 
-  protocol: string = Array.from(this.protocols.values())[0];
-  receiver?: string;
-  request?: string;
-  response?: string;
+  Tab: typeof Tab = Tab;
+  tabs: Tab[] = Object.values(Tab);
+  activeTab: Tab = this.tabs[0];
+
+  messageProtocol: string = Array.from(this.messageProtocols.values())[0];
+  messageReceiver?: string;
+  messageRequest?: string;
+  messageResponse?: string;
+
+  streamProtocol: string = Array.from(this.streamProtocols.values())[0];
+  streamReceiver?: string;
+  stream?: ByteStream<Stream>;
+  streamData?: string;
+  streamRead?: string;
 
   async ngOnInit(): Promise<void> {
-    this.peer = await createLibp2p({
-      addresses: {
-        listen: ['/p2p-circuit'],
-      },
-      transports: [
-        webSockets({ filter: filters.all }),
-        circuitRelayTransport(),
-      ],
-      connectionEncrypters: [noise()],
-      streamMuxers: [yamux()],
-      services: {
-        dcutr: dcutr(),
-        identify: identify(),
-        ping: ping(),
-        echo: () => ({
-          protocol: PROTOCOL_ECHO,
-        }),
-      },
-    });
-
+    this.peer = await createPeer();
     this.peerId = this.peer.peerId.toString();
     log('listening on %s', this.peer.getMultiaddrs());
 
@@ -96,7 +83,18 @@ export class AppComponent implements OnInit {
 
     this.peer?.addEventListener('peer:disconnect', (event) => {
       this.setConnected(event.detail.toString(), false);
+      this.connections.delete(event.detail.toString());
     });
+  }
+
+  getPeerId(): void {
+    if (this.publicKeyToTransform === undefined) {
+      return;
+    }
+
+    this.peerIdFromPublicKey = peerIdFromHexPublicKey(
+      this.publicKeyToTransform,
+    ).toString();
   }
 
   setConnected(peerId: string, connected: boolean) {
@@ -111,46 +109,84 @@ export class AppComponent implements OnInit {
     }
   }
 
-  async dial(address: string | undefined): Promise<void> {
-    if (address === undefined) return;
+  async connect(address: string | undefined): Promise<void> {
+    if (this.peer === undefined || address === undefined) {
+      return;
+    }
 
-    await this.peer?.dial(multiaddr(address));
+    const conn = await connect(this.peer, address);
+    this.connections.set(conn.remotePeer.toString(), conn);
   }
 
-  setProtocol(event: any) {
-    this.protocol = event.target.value;
+  selectTab(tab: Tab) {
+    this.activeTab = tab;
+  }
+
+  setMessageProtocol(event: any) {
+    this.messageProtocol = event.target.value;
   }
 
   async sendRequest(): Promise<void> {
     if (
       this.peer === undefined ||
-      this.receiver === undefined ||
-      this.request === undefined
-    )
+      this.messageReceiver === undefined ||
+      this.messageRequest === undefined
+    ) {
       return;
+    }
 
-    const conn = await this.peer.dial(peerIdFromString(this.receiver));
-    const signal = AbortSignal.timeout(15 * 60 * 1000);
-    const stream = await conn.newStream(this.protocol, {
-      signal,
-      runOnLimitedConnection: true,
-    });
-    const buf = new TextEncoder().encode(this.request);
-    const bytes = byteStream(stream);
-    const [, output] = await Promise.all([
-      bytes.write(buf, { signal }).then(() => stream.closeWrite()),
-      bytes.read(buf.byteLength, { signal }),
-    ]);
-    await stream.close({ signal });
-
-    this.response = new TextDecoder().decode(output.subarray());
+    this.messageResponse = await sendMessage(
+      this.peer,
+      this.messageProtocol,
+      this.messageReceiver,
+      this.messageRequest,
+    );
+    this.messageRequest = undefined;
   }
 
-  getPeerId(): void {
-    if (this.publicKeyToTransform === undefined) return;
+  setStreamProtocol(event: any) {
+    this.streamProtocol = event.target.value;
+  }
 
-    this.peerIdFromPublicKey = peerIdFromPublicKey(
-      keys.publicKeyFromRaw(Buffer.from(this.publicKeyToTransform, 'hex')),
-    ).toString();
+  async openStream(): Promise<void> {
+    if (this.streamReceiver === undefined) {
+      return;
+    }
+
+    const conn = this.connections.get(this.streamReceiver);
+    if (conn === undefined) {
+      return;
+    }
+
+    const stream = await openStream(conn, this.streamProtocol);
+
+    this.stream = stream;
+    this.streamRead = '';
+
+    new Promise(async () => {
+      const decoder = new TextDecoder();
+      while (
+        stream.unwrap().status === 'open' &&
+        this.streamRead !== undefined
+      ) {
+        this.streamRead += await streamRead(stream);
+      }
+    });
+  }
+
+  async closeStream(): Promise<void> {
+    this.stream?.unwrap().close();
+    this.stream = undefined;
+    this.streamData = undefined;
+    this.streamRead = undefined;
+  }
+
+  async streamWrite(): Promise<void> {
+    if (this.stream === undefined || this.streamData === undefined) {
+      return;
+    }
+
+    await streamWrite(this.stream, this.streamData);
+    this.streamData = undefined;
   }
 }

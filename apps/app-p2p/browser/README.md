@@ -47,11 +47,12 @@ To establish a connection with a peer:
 2. Click `Connect`.
 
 If the peer is behind NAT or a firewall, you must use its circuit-relay address:
+
 ```
 /<relay-multiaddr>/p2p-circuit/p2p/<peer-id>
 ```
-For more information, see the [libp2p Circuit Relay Addresses docs](https://docs.libp2p.io/concepts/nat/circuit-relay/#relay-addresses).
 
+For more information, see the [libp2p Circuit Relay Addresses docs](https://docs.libp2p.io/concepts/nat/circuit-relay/#relay-addresses).
 
 #### Sending messages
 

@@ -22,7 +22,7 @@
                   {{ relay.key }}
                 </p>
                 @if (!relay.value) {
-                  <button class="w-16 text-white" (click)="dial(relay.key)">
+                  <button class="w-16 text-white" (click)="connect(relay.key)">
                     Connect
                   </button>
                 } @else {
@@ -72,7 +72,7 @@
         />
         <button
           class="rounded-md bg-primary-900 w-32 px-3.5 py-2.5 text-sm font-semibold text-black shadow-sm hover:bg-primary-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 cursor-pointer"
-          (click)="dial(address)"
+          (click)="connect(address)"
         >
           Connect
         </button>
@@ -99,51 +99,143 @@
       }
     </div>
     <div class="flex flex-col gap-4">
-      <p class="text-xl text-white">Message</p>
-      <div class="flex flex-row gap-2">
-        <select
-          id="location"
-          name="location"
-          class="basis-1/4 block rounded-md border-0 py-1.5 pl-3 pr-10 bg-slate-800 text-gray-300 ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-primary-900 sm:text-sm sm:leading-6 cursor-pointer"
-          (change)="setProtocol($event)"
-        >
-          <option
-            *ngFor="let protocol of protocols"
-            [selected]="this.protocol === protocol"
-          >
-            {{ protocol }}
-          </option>
-        </select>
-        <input
-          type="text"
-          class="grow block rounded-md border-0 py-1.5 pl-3 pr-10 bg-slate-800 text-gray-300 ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-primary-900 sm:text-sm sm:leading-6"
-          placeholder="Peer ID"
-          [(ngModel)]="receiver"
-        />
-      </div>
-      <textarea
-        class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 bg-slate-800 text-gray-300 ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-primary-900 sm:text-sm sm:leading-6"
-        rows="5"
-        placeholder="Request"
-        [(ngModel)]="request"
-      ></textarea>
-      <div class="flex flex-row justify-end items-center">
-        <button
-          class="rounded-md bg-primary-900 w-32 px-3.5 py-2.5 text-sm font-semibold text-black shadow-sm hover:bg-primary-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 cursor-pointer"
-          (click)="sendRequest()"
-        >
-          Send
-        </button>
-      </div>
-    </div>
-    <div class="flex flex-col gap-2">
-      <textarea
-        disabled
-        class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 bg-slate-800 text-gray-300 ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-primary-900 sm:text-sm sm:leading-6"
-        rows="5"
-        placeholder="Response"
-        [(ngModel)]="response"
-      ></textarea>
+      <ul class="flex text-sm text-center">
+        <ng-container *ngFor="let tab of tabs; let i = index">
+          <li class="w-full focus-within:z-10">
+            <button
+              (click)="selectTab(tab)"
+              [ngClass]="{
+                'inline-block': true,
+                'text-black': tab === activeTab,
+                'text-gray-400': tab !== activeTab,
+                'font-semibold': tab === activeTab,
+                'w-full': true,
+                'bg-primary-500': tab === activeTab,
+                'bg-slate-800': tab !== activeTab,
+                'p-3': true,
+                'rounded-s-md': i === 0,
+                'rounded-e-md': i === tabs.length - 1,
+                'border-slate-800': true,
+                'hover:bg-slate-900': tab !== activeTab,
+              }"
+            >
+              {{ tab }}
+            </button>
+          </li>
+        </ng-container>
+      </ul>
+      @if (activeTab === Tab.MESSAGE) {
+        <div class="flex flex-col gap-4">
+          <p class="text-xl text-white">Message</p>
+          <div class="flex flex-row gap-10">
+            <div class="flex flex-row gap-2 w-full">
+              <select
+                id="location"
+                name="location"
+                class="basis-1/4 block rounded-md border-0 py-1.5 pl-3 pr-10 bg-slate-800 text-gray-300 ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-primary-900 sm:text-sm sm:leading-6 cursor-pointer"
+                (change)="setMessageProtocol($event)"
+              >
+                <option
+                  *ngFor="let protocol of messageProtocols"
+                  [selected]="this.messageProtocol === protocol"
+                >
+                  {{ protocol }}
+                </option>
+              </select>
+              <input
+                type="text"
+                class="grow block rounded-md border-0 py-1.5 pl-3 pr-10 bg-slate-800 text-gray-300 ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-primary-900 sm:text-sm sm:leading-6"
+                placeholder="Peer ID"
+                [(ngModel)]="messageReceiver"
+              />
+            </div>
+            <div class="flex flex-row justify-end items-center">
+              <button
+                class="rounded-md bg-primary-900 w-32 px-3.5 py-2.5 text-sm font-semibold text-black shadow-sm hover:bg-primary-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 cursor-pointer"
+                (click)="sendRequest()"
+              >
+                Send
+              </button>
+            </div>
+          </div>
+          <textarea
+            class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 bg-slate-800 text-gray-300 ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-primary-900 sm:text-sm sm:leading-6"
+            rows="5"
+            placeholder="Request"
+            [(ngModel)]="messageRequest"
+          ></textarea>
+          <textarea
+            disabled
+            class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 bg-slate-800 text-gray-300 ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-primary-900 sm:text-sm sm:leading-6"
+            rows="5"
+            placeholder="Response"
+            [(ngModel)]="messageResponse"
+          ></textarea>
+        </div>
+      }
+      @if (activeTab === Tab.STREAM) {
+        <div class="flex flex-col gap-4">
+          <p class="text-xl text-white">Stream</p>
+          <div class="flex flex-row gap-10">
+            <div class="flex flex-row gap-2 w-full">
+              <select
+                [disabled]="!!this.stream"
+                id="location"
+                name="location"
+                class="basis-1/4 block rounded-md border-0 py-1.5 pl-3 pr-10 bg-slate-800 text-gray-300 ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-primary-900 sm:text-sm sm:leading-6 cursor-pointer"
+                (change)="setStreamProtocol($event)"
+              >
+                <option
+                  *ngFor="let protocol of streamProtocols"
+                  [selected]="this.streamProtocol === protocol"
+                >
+                  {{ protocol }}
+                </option>
+              </select>
+              <input
+                [disabled]="!!this.stream"
+                type="text"
+                class="grow block rounded-md border-0 py-1.5 pl-3 pr-10 bg-slate-800 text-gray-300 ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-primary-900 sm:text-sm sm:leading-6"
+                placeholder="Peer ID"
+                [(ngModel)]="streamReceiver"
+              />
+            </div>
+            <div class="flex flex-row justify-end items-center">
+              <button
+                class="rounded-md bg-primary-900 w-32 px-3.5 py-2.5 text-sm font-semibold text-black shadow-sm hover:bg-primary-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 cursor-pointer"
+                (click)="this.stream ? closeStream() : openStream()"
+              >
+                {{ this.stream ? "Close" : "Open" }}
+              </button>
+            </div>
+          </div>
+          @if (this.stream) {
+            <div class="flex flex-row gap-10">
+              <input
+                class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 bg-slate-800 text-gray-300 ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-primary-900 sm:text-sm sm:leading-6"
+                type="text"
+                placeholder="Data"
+                [(ngModel)]="streamData"
+              />
+              <div class="flex flex-row justify-end items-center">
+                <button
+                  class="rounded-md bg-primary-900 w-32 px-3.5 py-2.5 text-sm font-semibold text-black shadow-sm hover:bg-primary-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 cursor-pointer"
+                  (click)="streamWrite()"
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+            <textarea
+              disabled
+              class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 bg-slate-800 text-gray-300 ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-primary-900 sm:text-sm sm:leading-6"
+              rows="5"
+              placeholder="Read"
+              [(ngModel)]="streamRead"
+            ></textarea>
+          }
+        </div>
+      }
     </div>
   </div>
 </main>
