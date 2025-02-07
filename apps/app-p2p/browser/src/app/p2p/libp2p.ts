@@ -10,6 +10,7 @@ import { ping, PingService } from '@libp2p/ping';
 import { webSockets } from '@libp2p/websockets';
 import * as filters from '@libp2p/websockets/filters';
 import { multiaddr } from '@multiformats/multiaddr';
+import { Buffer } from 'buffer';
 import { ByteStream, byteStream } from 'it-byte-stream';
 import { createLibp2p, Libp2p } from 'libp2p';
 
