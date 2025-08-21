@@ -19,6 +19,7 @@
     "typescript": "^5.4.5"
   },
   "devDependencies": {
+    "@acurast/cli": "^0.4.1",
     "@types/node": "^20.14.0",
     "file-loader": "^6.2.0",
     "prettier": "^3.3.2",

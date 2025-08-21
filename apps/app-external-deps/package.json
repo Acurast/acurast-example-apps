@@ -12,6 +12,7 @@
     "bn.js": "^5.2.1"
   },
   "devDependencies": {
+    "@acurast/cli": "^0.4.1",
     "@types/bn.js": "^5.1.5",
     "@types/node": "18.17.2",
     "ts-loader": "^9.5.1",

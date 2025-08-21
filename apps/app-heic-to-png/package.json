@@ -20,7 +20,7 @@
     "typescript": "^5.4.5"
   },
   "devDependencies": {
-    "@acurast/cli": "^0.1.2",
+    "@acurast/cli": "^0.4.1",
     "@types/express": "^5.0.0",
     "@types/localtunnel": "^2.0.4",
     "@types/multer": "^1.4.12",

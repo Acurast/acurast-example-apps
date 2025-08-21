@@ -18,7 +18,7 @@
     "utf-8-validate": "^6.0.4"
   },
   "devDependencies": {
-    "@acurast/cli": "^0.3.4",
+    "@acurast/cli": "^0.4.1",
     "typescript": "^5.2.2",
     "ts-loader": "^9.5.1",
     "webpack": "^5.91.0",

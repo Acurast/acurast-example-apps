@@ -16,7 +16,7 @@
     "typescript": "^5.4.5"
   },
   "devDependencies": {
-    "@acurast/cli": "^0.2.0",
+    "@acurast/cli": "^0.4.1",
     "@types/localtunnel": "^2.0.4",
     "@types/node": "^20.17.9",
     "@types/node-telegram-bot-api": "^0.64.7",
