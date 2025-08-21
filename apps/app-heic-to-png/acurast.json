@@ -24,7 +24,7 @@
       "numberOfReplicas": 1,
       "requiredModules": [],
       "minProcessorReputation": 0,
-      "maxCostPerExecution": 10000000000,
+      "maxCostPerExecution": 7614982400000,
       "includeEnvironmentVariables": [],
       "processorWhitelist": []
     }

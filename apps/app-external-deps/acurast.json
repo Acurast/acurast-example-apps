@@ -1,9 +1,8 @@
 {
   "projects": {
-    "webserver": {
-      "projectName": "webserver",
-      "fileUrl": "dist/index.js",
-      "entrypoint": "index.js",
+    "external-deps": {
+      "projectName": "external-deps",
+      "fileUrl": "dist/bundle.js",
       "network": "canary",
       "onlyAttestedDevices": true,
       "assignmentStrategy": {
@@ -11,7 +10,7 @@
       },
       "execution": {
         "type": "onetime",
-        "maxExecutionTimeInMs": 3600000
+        "maxExecutionTimeInMs": 30000
       },
       "maxAllowedStartDelayInMs": 10000,
       "usageLimit": {
@@ -19,10 +18,10 @@
         "maxNetworkRequests": 0,
         "maxStorage": 0
       },
-      "numberOfReplicas": 5,
+      "numberOfReplicas": 1,
       "requiredModules": [],
       "minProcessorReputation": 0,
-      "maxCostPerExecution": 77136800000,
+      "maxCostPerExecution": 32376140000,
       "includeEnvironmentVariables": [],
       "processorWhitelist": []
     }
