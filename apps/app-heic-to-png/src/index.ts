@@ -8,7 +8,7 @@ import { promisify } from "util";
 import { html } from "./html";
 
 const LOCAL_PORT = 3000;
-const LOCALTUNNEL_HOST = "https://processor-proxy.sook.ch/";
+const LOCALTUNNEL_HOST = "https://proxy.acu.run/";
 const LOCALTUNNEL_SUBDOMAIN = "heic-to-png";
 
 const app = express();

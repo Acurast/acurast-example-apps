@@ -17,4 +17,4 @@ export const MODEL_NAME = "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf";
 
 export const STORAGE_DIR = _STD_.job.storageDir;
 
-export const LOCALTUNNEL_HOST = "https://processor-proxy.sook.ch/";
+export const LOCALTUNNEL_HOST = "https://proxy.acu.run/";

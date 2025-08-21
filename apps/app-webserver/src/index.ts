@@ -7,9 +7,9 @@ import localtunnel from "localtunnel";
  * This is simply for testing purposes. If you need a secure way to host your
  * project, please reach out to us.
  */
-const LOCALTUNNEL_SUBDOMAIN = ""; // This is the subdomain where your webserver will be available. Eg. https://example.processor-proxy.sook.ch
+const LOCALTUNNEL_SUBDOMAIN = ""; // This is the subdomain where your webserver will be available. Eg. https://example.proxy.acu.run
 
-const LOCALTUNNEL_HOST = "https://processor-proxy.sook.ch/";
+const LOCALTUNNEL_HOST = "https://proxy.acu.run/";
 const LOCAL_PORT = 3000;
 
 if (!LOCALTUNNEL_SUBDOMAIN) {
