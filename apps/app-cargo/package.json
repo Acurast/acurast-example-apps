@@ -1,0 +1,13 @@
+{
+  "name": "app-cargo",
+  "version": "0.0.1",
+  "description": "Acurast example app using the Shell runtime to run a non-Node.js workload",
+  "scripts": {
+    "deploy": "acurast deploy"
+  },
+  "author": "Andreas Gassmann<andreas@acurast.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@acurast/cli": "^0.8.1"
+  }
+}
