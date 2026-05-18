@@ -33,7 +33,8 @@
         "SSH_PASSWORD",
         "SSH_TUNNEL",
         "CALLBACK_URL",
-        "NGROK_AUTHTOKEN"
+        "NGROK_AUTHTOKEN",
+        "PINGGY_ACCESS_TOKEN"
       ],
       "processorWhitelist": []
     }
