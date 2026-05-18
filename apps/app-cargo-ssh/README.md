@@ -64,8 +64,8 @@ Make sure all variables the deployment needs are listed in `includeEnvironmentVa
 ### Deploy
 
 ```bash
-npm i
-npm run deploy
+$ npm install -g @acurast/cli # install the Acurast CLI, if not already installed
+$ acurast deploy
 ```
 
 The CLI will upload the `app/` directory and submit the deployment described in `acurast.json`.
@@ -75,13 +75,17 @@ The CLI will upload the `app/` directory and submit the deployment described in 
 Once the deployment is running, wait for the `started` event at your `CALLBACK_URL`:
 
 ```json
-{"event":"started","host":"<host>","port":<port>}
+{
+  "event": "started",
+  "host": "<host>",
+  "port": <port>
+}
 ```
 
 Then connect from your machine:
 
 ```bash
-ssh root@<host> -p <port>
+$ ssh root@<host> -p <port>
 ```
 
 All Acurast environment variables are available in the session.
