@@ -14,7 +14,7 @@ The deployment starts a [Dropbear](https://github.com/mkj/dropbear) SSH server i
 
 ### getifaddrs override
 
-Proot does not emulate network interfaces, so any binary that calls `getifaddrs` (such as ngrok) will fail. `getifaddrs_override.c` is compiled into a shared library at startup and injected via `LD_PRELOAD` for all SSH sessions, providing a minimal loopback-only implementation.
+Proot does not emulate network interfaces, so any binary that calls `getifaddrs` (such as ngrok) will fail. `getifaddrs_override.c` is compiled into a shared library at startup and injected via `LD_PRELOAD` for all SSH sessions, providing a minimal loopback-only implementation. See the [Acurast docs](https://docs.acurast.com/developers/build/cargo-runtime-environment#network-interfaces-getifaddrs) for more details.
 
 ## Tunnel providers
 
