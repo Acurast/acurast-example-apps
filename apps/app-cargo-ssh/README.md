@@ -20,9 +20,9 @@ Proot does not emulate network interfaces, so any binary that calls `getifaddrs`
 
 | Provider | `SSH_TUNNEL` value | Account required | Notes |
 |---|---|---|---|
-| **ngrok** | `ngrok` | Yes (free) | Requires `NGROK_AUTHTOKEN` |
-| **bore** | `bore` | No | Uses `bore.pub`; may be unreachable from some networks |
-| **pinggy** | `pinggy` | No (optional) | Connects on port 443; set `PINGGY_ACCESS_TOKEN` for a stable URL |
+| [**ngrok**](https://ngrok.com) | `ngrok` | Yes (free) | Requires `NGROK_AUTHTOKEN` |
+| [**bore**](https://github.com/ekzhang/bore) | `bore` | No | Uses `bore.pub`; may be unreachable from some networks |
+| [**pinggy**](https://pinggy.io) | `pinggy` | No (optional) | Connects on port 443; set `PINGGY_ACCESS_TOKEN` for a stable URL |
 
 > [!NOTE]
 > The tunnel is established outbound from the device (port 443 for pinggy, custom port for bore/ngrok). The connecting client opens a TCP connection to the assigned address. Some networks block outbound TCP to non-standard ports — if `ssh` hangs and eventually times out, try from a different network or use a VPN.
