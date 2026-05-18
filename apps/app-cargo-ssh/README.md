@@ -35,7 +35,7 @@ Proot does not emulate network interfaces, so any binary that calls `getifaddrs`
 - For ngrok: a free [ngrok](https://ngrok.com) account with an auth token.
 - For pinggy: optionally a [pinggy.io](https://pinggy.io) access token.
 
-> [!NOTE]
+> [!IMPORTANT]
 > **ngrok:** TCP tunnels require a verified account. ngrok may ask you to add a credit card before allowing TCP tunnels on a free plan. To verify your setup works before deploying, run the following on your machine:
 > ```bash
 > ngrok config add-authtoken $NGROK_AUTHTOKEN && ngrok tcp 2222
