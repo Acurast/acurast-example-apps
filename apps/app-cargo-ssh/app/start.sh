@@ -49,8 +49,12 @@ dropbearkey -t ecdsa -f /etc/dropbear/dropbear_ecdsa_host_key 2>/dev/null || tru
 echo "=== SSH server starting on port 2222 ==="
 send_log "Local SSH server starting on port 2222"
 
-# Start the SSH server
-dropbear -E -p 2222 -R
+# Start the SSH server in foreground mode so it stays a child process
+dropbear -F -E -p 2222 -R &
+DROPBEAR_PID=$!
+
+trap 'kill $DROPBEAR_PID $TUNNEL_PID 2>/dev/null' INT TERM EXIT
+
 send_log "Local SSH server ready, starting tunnel"
 
 # Source and start the selected tunnel
@@ -74,4 +78,4 @@ else
     report_error "Could not retrieve tunnel address"
 fi
 
-wait $TUNNEL_PID
+wait $DROPBEAR_PID
