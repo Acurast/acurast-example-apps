@@ -1,0 +1,33 @@
+{
+  "projects": {
+    "acurast-tunnel-scripts": {
+      "projectName": "acurast-tunnel-scripts",
+      "fileUrl": "dist",
+      "entrypoint": "bundle.js",
+      "network": "canary",
+      "onlyAttestedDevices": true,
+      "assignmentStrategy": {
+        "type": "Single"
+      },
+      "execution": {
+        "type": "onetime",
+        "maxExecutionTimeInMs": 7200000
+      },
+      "maxAllowedStartDelayInMs": 10000,
+      "usageLimit": {
+        "maxMemory": 0,
+        "maxNetworkRequests": 0,
+        "maxStorage": 0
+      },
+      "numberOfReplicas": 2,
+      "requiredModules": ["Shell"],
+      "minProcessorVersions": {
+        "android": "122"
+      },
+      "minProcessorReputation": 0,
+      "maxCostPerExecution": 100000000000,
+      "includeEnvironmentVariables": [],
+      "processorWhitelist": []
+    }
+  }
+}

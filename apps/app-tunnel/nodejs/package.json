@@ -1,0 +1,28 @@
+{
+  "name": "acurast-tunnel-scripts",
+  "version": "0.0.1",
+  "description": "A blank Acurast starter template",
+  "main": "dist/bundle.js",
+  "scripts": {
+    "start": "npm run build && node ./dist/bundle.js",
+    "build": "webpack",
+    "bundle": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "deploy": "npm run bundle && acurast deploy"
+  },
+  "dependencies": {
+    "@polkadot/api": "^16.5.6",
+    "elliptic": "^6.6.1"
+  },
+  "devDependencies": {
+    "@acurast/cli": "^0.8.1",
+    "@types/elliptic": "^6",
+    "@types/node": "^20.14.0",
+    "file-loader": "^6.2.0",
+    "prettier": "^3.3.2",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.4.5",
+    "webpack": "^5.91.0",
+    "webpack-cli": "^5.1.4"
+  }
+}
