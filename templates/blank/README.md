@@ -1,30 +1,21 @@
 # Acurast Template: Blank
 
-A blank project to start building your own Acurast app.
+An empty starting point. Bring your own runtime and tooling.
 
-## Development
+## Next steps
 
-### Setup
+1. Initialize the Acurast project config:
 
-Run `acurast init` to initialize the project.
+   ```bash
+   acurast init
+   ```
 
-### Build and Bundle
+2. Add your source files and a build/bundle step appropriate for your runtime.
 
-To build and bundle the project into a single executable, run
+3. Deploy:
 
-```bash
-npm run bundle
-```
+   ```bash
+   acurast deploy
+   ```
 
-This will create the file `./dist/bundle.js`.
-
-> [!TIP]
-> Run `node ./dist/bundle.js` to check if the app works on your computer
-
-### Deployment on Acurast
-
-After you have set up the project and initialized it with `acurast init`, you can deploy the project with:
-
-```bash
-npm run deploy
-```
+For runtime-specific starters see the [`nodejs`](../nodejs) and [`cargo`](../cargo) templates, or browse the [`apps/`](../../apps) directory for full examples.

@@ -1,7 +1,7 @@
 {
-  "name": "blank",
+  "name": "nodejs",
   "version": "0.0.1",
-  "description": "A blank Acurast starter template",
+  "description": "A Node.js Acurast starter template",
   "main": "dist/bundle.js",
   "scripts": {
     "start": "npm run build && node ./dist/bundle.js",
