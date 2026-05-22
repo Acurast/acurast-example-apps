@@ -398,3 +398,5 @@ FodyWeavers.xsd
 *.sln.iml
 
 dist
+
+.DS_Store
