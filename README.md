@@ -17,6 +17,7 @@ An overview of the examples available in this repository.
 | [p2p](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-p2p)                     | Connect to a processor over a P2P network                     | TS, CLI, P2P                       |
 | [puppeteer](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-puppeteer)         | Scrape the web using Puppeteer                                | TS, CLI, Multiple Deployments      |
 | [telegram-bot](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-telegram-bot)   | Run a telegram-bot                                            | TS, CLI                            |
+| [tunnel](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-tunnel)               | Expose a local service to the public internet                 | TS, Cargo, CLI, P2P                |
 | [wasm](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-wasm)                   | Run wasm                                                      | TS, CLI, WASM                      |
 | [webserver](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-webserver)         | Run a webserver                                               | TS, CLI, Webserver                 |
 
