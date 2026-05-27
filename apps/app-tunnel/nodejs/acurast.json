@@ -20,7 +20,6 @@
         "maxStorage": 0
       },
       "numberOfReplicas": 2,
-      "requiredModules": ["Shell"],
       "minProcessorVersions": {
         "android": 122
       },
