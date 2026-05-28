@@ -1,11 +1,13 @@
 import { ApiPromise, WsProvider } from '@polkadot/api'
+import { createHash } from 'crypto'
 import fs from 'fs'
 import path from 'path'
 
 import { CoordinatorState, DeploymentId, DeploymentInfo, KeyPair, PeerInfo, TunnelInfo } from './types'
 import { log, generateP256KeyPair, sleep, privateKeyHexToPkcs8Base64 } from './utils'
-import { PeerNode } from './leaderElection/peerNode'
+import { PeerNode, stableSerialize } from './leaderElection/peerNode'
 import { MessageHeader, Payload, PeerId, Persistence, StateEnvelope, Transport } from './leaderElection/types'
+import { reportStarted } from './callback'
 
 declare const _STD_: any
 
@@ -84,12 +86,62 @@ export class TunnelCoordinator implements Transport<CoordinatorState>, Persisten
         if (peers.length <= 0) {
             throw Error('No peers found')
         }
+        if (peers.length === 1) {
+            await this.runSolo()
+            return
+        }
         log('Starting P2P communication')
         await this.startP2PCommunication()
         log('Sleeping for 10 seconds')
         await sleep(10)
         log('Starting Peer Node')
         await this.startPeerNode()
+    }
+
+    private async runSolo(): Promise<void> {
+        log('Solo deployment, skipping leader election ceremony')
+        const persisted = await this.load()
+        if (persisted !== null) {
+            log('Restoring persisted state')
+            this.keyPair = persisted.payload.keyPair
+            await this.startTunnel(persisted.payload.certificate)
+            return
+        }
+        const payload = await this.generateOwnState()
+        const serialized = stableSerialize(payload)
+        const hash = createHash('sha256').update(serialized).digest('hex')
+        const envelope: StateEnvelope<CoordinatorState> = {
+            epoch: 0,
+            generatedBy: this.peerInfo.id,
+            payload,
+            hash,
+        }
+        await this.save(envelope)
+    }
+
+    private async generateOwnState(): Promise<CoordinatorState> {
+        try {
+            const keyPair = generateP256KeyPair()
+            this.keyPair = keyPair
+            await this.startTunnel()
+            log('startTunnel returned, polling certPem')
+            let pem: string | undefined | null = undefined
+            let attempts = 12
+            while (!isDefined(pem)) {
+                log(`certPem attempt ${13 - attempts}`)
+                pem = await _tunnelCertPem()
+                log(`certPem -> ${typeof pem} ${pem ? `len=${pem.length}` : pem}`)
+                if (isDefined(pem) || attempts <= 0) break
+                attempts -= 1
+                await sleep(10)
+            }
+            if (!isDefined(pem)) throw Error('PEM certificate not available')
+            log('returning state')
+            return { keyPair, certificate: pem }
+        } catch (e: any) {
+            log(`state gen threw: ${e?.stack || e}`, 'error')
+            throw e
+        }
     }
 
     private lastConnectIndex: number = 0
@@ -198,30 +250,7 @@ export class TunnelCoordinator implements Transport<CoordinatorState>, Persisten
     }
 
     private async startPeerNode() {
-        this.peerNode = new PeerNode<CoordinatorState>(this.peerInfo.id, this, this, async (): Promise<CoordinatorState> => {
-            try {
-                const keyPair = generateP256KeyPair()
-                this.keyPair = keyPair
-                await this.startTunnel()
-                log('startTunnel returned, polling certPem')
-                let pem: string | undefined | null = undefined
-                let attempts = 12
-                while (!isDefined(pem)) {
-                    log(`certPem attempt ${13 - attempts}`)
-                    pem = await _tunnelCertPem()
-                    log(`certPem -> ${typeof pem} ${pem ? `len=${pem.length}` : pem}`)
-                    if (isDefined(pem) || attempts <= 0) break
-                    attempts -= 1
-                    await sleep(10)
-                }
-                if (!isDefined(pem)) throw Error('PEM certificate not available')
-                log('returning state')
-                return { keyPair, certificate: pem }
-            } catch (e: any) {
-                log(`state gen threw: ${e?.stack || e}`, 'error')
-                throw e
-            }
-        })
+        this.peerNode = new PeerNode<CoordinatorState>(this.peerInfo.id, this, this, () => this.generateOwnState())
         this.peerNode.on('leader', () => {
             log(`  [${this.peerInfo.id}] became LEADER (epoch ${this.peerNode?.epoch})`)
         })
@@ -260,12 +289,14 @@ export class TunnelCoordinator implements Transport<CoordinatorState>, Persisten
                 algorithm: 'Secp256r1',
                 bytes: privateKeyHexToPkcs8Base64(this.keyPair.private)
             },
-            certPem: certificate
+            certPem: certificate,
+            acmeStaging: false,
         }
 
         const info: TunnelInfo = await _tunnelStart(spec)
         log(`Tunnel started: ${JSON.stringify(info, undefined, 2)}`)
         this.tunnelInfo = info
+        await reportStarted(info)
         return info
     }
 

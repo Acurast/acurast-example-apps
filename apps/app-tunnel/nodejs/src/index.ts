@@ -2,6 +2,7 @@ import { createServer, IncomingMessage, ServerResponse } from "http";
 import { TunnelCoordinator } from "./coordinator";
 import { P2P_RELAYS, TUNNEL_RELAYS, RPC_ENDPOINTS, DOMAIN_SUFFIX, LOCAL_ADDRESS } from "./environment";
 import { log } from "./utils";
+import { reportError } from "./callback";
 
 function startHttpServer(address: string, content?: () => string | undefined): Promise<void> {
     const [host, portStr] = address.split(":");
@@ -13,7 +14,7 @@ function startHttpServer(address: string, content?: () => string | undefined): P
         const server = createServer((_req: IncomingMessage, res: ServerResponse) => {
             const customContent = content ? content() : undefined
             res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-            res.end(`<h1>Hello from: ${customContent ?? 'Node.js'}</h1>`);
+            res.end(`<h1>Hello from:</h1><p>${customContent ?? 'Node.js'}</p>`);
         });
         server.once("error", reject);
         server.listen(port, host, () => {
@@ -37,4 +38,7 @@ async function main() {
     });
 }
 
-main().catch((error) => log(`❌ Main: unhandled error: ${error}`, "error"));
+main().catch((error) => {
+    log(`❌ Main: unhandled error: ${error}`, "error");
+    void reportError(String(error?.stack ?? error));
+});
