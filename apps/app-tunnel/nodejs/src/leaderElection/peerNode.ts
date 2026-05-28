@@ -343,7 +343,7 @@ function randomBetween(min: number, max: number): number {
 }
 
 /** Deterministic JSON for hashing: sorts object keys. */
-function stableSerialize(x: unknown): string {
+export function stableSerialize(x: unknown): string {
     return JSON.stringify(x, (_key, value) => {
         if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
             const sorted: Record<string, unknown> = {};

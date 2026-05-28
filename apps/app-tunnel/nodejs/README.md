@@ -31,11 +31,10 @@ Full tunnel docs: **[Tunnel Quick Start](https://docs.acurast.com/developers/get
 cp .env.example .env
 ```
 
-| Variable | Purpose |
-| --- | --- |
-| `ACURAST_MNEMONIC` | Your deployer's seed phrase. Used by the CLI to sign the on-chain deployment extrinsic. **Do not commit this file.** |
-
-No app-level environment variables are required for this example (`includeEnvironmentVariables` in `acurast.json` is empty).
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `ACURAST_MNEMONIC` | yes | Your deployer's seed phrase. Used by the CLI to sign the on-chain deployment extrinsic. **Do not commit this file.** |
+| `CALLBACK_URL` | no | Webhook URL that receives JSON events (`started`, `error`) during the deployment lifecycle. Useful for grabbing the tunnel URL. |
 
 ### `acurast.json` — deployment config
 
@@ -55,8 +54,25 @@ npm install
 npm run deploy
 ```
 
-This runs `npm run bundle` then `acurast deploy`, which uploads `./dist` to IPFS and registers the deployment on-chain.
+This runs `npm run bundle` then `acurast deploy`, which registers the deployment on chain.
 
+### Verify
+
+If `CALLBACK_URL` is set, the deployment POSTs a `started` event once the tunnel is up:
+
+```json
+{
+  "event": "started",
+  "data": {
+    "url": "https://<clientId>.<DOMAIN_SUFFIX>:8443",
+    "clientId": "<clientId>",
+    "secondaryUrl": "https://<secondaryClientId>.<DOMAIN_SUFFIX>:8443",
+    "secondaryClientId": "<secondaryClientId>"
+  }
+}
+```
+
+Then hit the tunnel:
 
 ```bash
 curl -k https://<clientId>.<DOMAIN_SUFFIX>:8443/

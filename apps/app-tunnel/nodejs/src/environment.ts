@@ -1,5 +1,10 @@
 export const TUNNEL_RELAYS = [
     'relay-2.canary.acurast.com:4433',
+    'canary-relay.5elementsnodes.com:4433',
+    'acurast-canary-relay.dishich.com:4433',
+    'relay.el9-acurast.com:4433',
+    'canary-relay.vincent-acurast.xyz:4433',
+    'canary-relay.acurast.online:4433',
 ]
 export const RPC_ENDPOINTS = [
     'wss://public-rpc.canary.acurast.com',

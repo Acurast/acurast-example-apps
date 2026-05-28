@@ -22,6 +22,11 @@ from cryptography.hazmat.primitives.asymmetric import ec
 
 TUNNEL_RELAYS = [
     "relay-2.canary.acurast.com:4433",
+    "canary-relay.5elementsnodes.com:4433",
+    "acurast-canary-relay.dishich.com:4433",
+    "relay.el9-acurast.com:4433",
+    "canary-relay.vincent-acurast.xyz:4433",
+    "canary-relay.acurast.online:4433",
 ]
 DOMAIN_SUFFIX = "my-domain.com"
 SSH_PORT = 2222

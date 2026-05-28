@@ -1,7 +1,7 @@
 {
   "projects": {
-    "acurast-tunnel-scripts": {
-      "projectName": "acurast-tunnel-scripts",
+    "nodejs-tunnel": {
+      "projectName": "nodejs-tunnel",
       "fileUrl": "dist",
       "entrypoint": "bundle.js",
       "network": "canary",
@@ -24,8 +24,8 @@
         "android": 122
       },
       "minProcessorReputation": 0,
-      "maxCostPerExecution": 100000000000,
-      "includeEnvironmentVariables": [],
+      "maxCostPerExecution": 300000000000,
+      "includeEnvironmentVariables": ["CALLBACK_URL"],
       "processorWhitelist": []
     }
   }
