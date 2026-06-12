@@ -6,20 +6,28 @@ This repository contains example apps that can be deployed to the Acurast Cloud.
 
 An overview of the examples available in this repository.
 
-| Project                                                                                           | Description                                                   | Features                           |
-| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ---------------------------------- |
-| [cargo](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo)                 | Run a non-Node.js workload using the Shell runtime            | Shell, Python, Cargo, CLI          |
-| [env-vars](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-env-vars)           | Use secret environment variables in your deployments          | TS, CLI, Environment Variables     |
-| [external-deps](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-external-deps) | A simple example to show how to include external dependencies | TS                                 |
-| [fetch](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-fetch)                 | Use fetch to get data from an API and post it to another API  | TS, CLI, Acurast Runtime Variables |
-| [heic-to-png](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-heic-to-png)     | Convert HEIC images to PNG                                    | TS, CLI                            |
-| [llm](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-llm)                     | Run an LLM on Acurast                                         | TS, CLI, LLM Server, Webserver     |
-| [p2p](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-p2p)                     | Connect to a processor over a P2P network                     | TS, CLI, P2P                       |
-| [puppeteer](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-puppeteer)         | Scrape the web using Puppeteer                                | TS, CLI, Multiple Deployments      |
-| [telegram-bot](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-telegram-bot)   | Run a telegram-bot                                            | TS, CLI                            |
-| [tunnel](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-tunnel)               | Expose a local service to the public internet                 | TS, Cargo, CLI, P2P                |
-| [wasm](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-wasm)                   | Run wasm                                                      | TS, CLI, WASM                      |
-| [webserver](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-webserver)         | Run a webserver                                               | TS, CLI, Webserver                 |
+| Project                                                                                         | Description                                                  | Features                           |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------- | --- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | --- |
+| [cargo](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo)               | Run a non-Node.js workload using the Shell runtime           | Shell, Python, Cargo, CLI          |
+| [env-vars](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-env-vars)         | Use secret environment variables in your deployments         | TS, CLI, Environment Variables     |     | [external-deps](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-external-deps) | A simple example to show how to include external dependencies | TS  |
+| [fetch](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-fetch)               | Use fetch to get data from an API and post it to another API | TS, CLI, Acurast Runtime Variables |
+| [heic-to-png](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-heic-to-png)   | Convert HEIC images to PNG                                   | TS, CLI                            |
+| [llm](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-llm)                   | Run an LLM on Acurast                                        | TS, CLI, LLM Server, Webserver     |
+| [p2p](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-p2p)                   | Connect to a processor over a P2P network                    | TS, CLI, P2P                       |
+| [puppeteer](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-puppeteer)       | Scrape the web using Puppeteer                               | TS, CLI, Multiple Deployments      |
+| [telegram-bot](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-telegram-bot) | Run a telegram-bot                                           | TS, CLI                            |
+| [tunnel](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-tunnel)             | Expose a local service to the public internet                | TS, Cargo, CLI, P2P                |
+| [wasm](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-wasm)                 | Run wasm                                                     | TS, CLI, WASM                      |
+| [webserver](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-webserver)       | Run a webserver                                              | TS, CLI, Webserver                 |
+
+### Benchmarks
+
+The [`apps/benchmarks/`](https://github.com/Acurast/acurast-example-apps/tree/main/apps/benchmarks)
+directory contains a small study comparing the runtime options on Acurast: the same workload
+run in the native JS runtime, in Node inside a proot container, and as native Rust inside a
+proot container — plus the tooling to collect and visualize the results. See
+[`apps/benchmarks/README.md`](https://github.com/Acurast/acurast-example-apps/tree/main/apps/benchmarks)
+for the apps, how to run them, and the findings.
 
 ### External Projects
 

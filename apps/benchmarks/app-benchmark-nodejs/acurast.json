@@ -1,0 +1,29 @@
+{
+  "projects": {
+    "benchmark-nodejs": {
+      "projectName": "benchmark-nodejs",
+      "fileUrl": "dist/bundle.js",
+      "network": "mainnet",
+      "onlyAttestedDevices": true,
+      "assignmentStrategy": {
+        "type": "Single"
+      },
+      "execution": {
+        "type": "onetime",
+        "maxExecutionTimeInMs": 120000
+      },
+      "maxAllowedStartDelayInMs": 10000,
+      "usageLimit": {
+        "maxMemory": 0,
+        "maxNetworkRequests": 0,
+        "maxStorage": 0
+      },
+      "numberOfReplicas": 16,
+      "requiredModules": [],
+      "minProcessorReputation": 0,
+      "maxCostPerExecution": 50000000000,
+      "includeEnvironmentVariables": ["WEBHOOK_URL"],
+      "processorWhitelist": []
+    }
+  }
+}
