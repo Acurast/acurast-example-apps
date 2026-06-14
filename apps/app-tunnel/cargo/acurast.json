@@ -12,7 +12,8 @@
       "network": "canary",
       "onlyAttestedDevices": true,
       "assignmentStrategy": {
-        "type": "Single"
+        "type": "Single",
+        "instantMatch": []
       },
       "execution": {
         "type": "onetime",
@@ -27,10 +28,10 @@
       "numberOfReplicas": 1,
       "requiredModules": ["Shell"],
       "minProcessorVersions": {
-        "android": 122
+        "android": 125
       },
       "minProcessorReputation": 0,
-      "maxCostPerExecution": 201096720000,
+      "maxCostPerExecution": 320540320000,
       "includeEnvironmentVariables": [
         "CALLBACK_URL",
         "SSH_PASSWORD"

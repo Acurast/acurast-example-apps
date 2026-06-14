@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Acurast reverse-tunnel client for the Cargo SSH deployment.
+"""Acurast reverse-tunnel client for the Cargo web + SSH deployment.
 
 Generates a P-256 identity key, then asks the Acurast Processor (via the JSON-RPC
-bridge on the abstract Unix socket named in $BRIDGE_SOCKET) to open a
-reverse tunnel forwarding inbound traffic to the local dropbear instance.
+bridge on the abstract Unix socket named in $BRIDGE_SOCKET) to open a reverse
+tunnel. The PRIMARY (Let's Encrypt) connection forwards to a local web server; the
+SECONDARY (self-signed) connection forwards to the local dropbear SSH instance.
 """
 
 import base64
@@ -28,9 +29,12 @@ TUNNEL_RELAYS = [
     "canary-relay.vincent-acurast.xyz:4433",
     "canary-relay.acurast.online:4433",
 ]
-DOMAIN_SUFFIX = "my-domain.com"
+DOMAIN_SUFFIX = "run.canary.acurast.com"
+# Primary (ACME) tunnel serves the web page; secondary (self-signed) maps to SSH.
+WEB_PORT = 8080
 SSH_PORT = 2222
-LOCAL_ADDR = f"127.0.0.1:{SSH_PORT}"
+LOCAL_ADDR = f"127.0.0.1:{WEB_PORT}"
+SECONDARY_LOCAL_ADDR = f"127.0.0.1:{SSH_PORT}"
 STATUS_POLL_INTERVAL_SEC = 30
 
 CALLBACK_URL = os.environ.get("CALLBACK_URL")
@@ -60,8 +64,14 @@ def report_log(message):
     post_callback({"event": "log", "message": message})
 
 
-def report_started(url, ssh_port, connect):
-    post_callback({"event": "started", "url": url, "sshPort": ssh_port, "connect": connect})
+def report_started(web_url, ssh_url, ssh_port, connect):
+    post_callback({
+        "event": "started",
+        "webUrl": web_url,
+        "sshUrl": ssh_url,
+        "sshPort": ssh_port,
+        "connect": connect,
+    })
 
 
 def report_error(message):
@@ -125,23 +135,42 @@ def main():
     spec = {
         "serverAddrs": TUNNEL_RELAYS,
         "domainSuffix": DOMAIN_SUFFIX,
+        # Primary (ACME) connection forwards here — the web server.
         "localAddr": LOCAL_ADDR,
+        # Secondary (self-signed) connection forwards here — the SSH server. The
+        # host opens the secondary connection automatically; we only choose its target.
+        "secondaryLocalAddr": SECONDARY_LOCAL_ADDR,
         "primaryKey": {"algorithm": "Secp256r1", "bytes": key_b64},
         "acmeStaging": False,
     }
 
-    report_log(f"Requesting reverse tunnel to {LOCAL_ADDR}")
+    report_log(f"Requesting reverse tunnel (web -> {LOCAL_ADDR}, ssh -> {SECONDARY_LOCAL_ADDR})")
     info = rpc_call("tunnel_start", [spec])
-    url = info.get("url")
+    web_url = info.get("url")
     client_id = info.get("clientId")
-    report_log(f"Tunnel started: url={url} clientId={client_id}")
-    connect_cmd = (
-        f"ssh -o ProxyCommand='openssl s_client -quiet "
-        f"-servername {client_id}.{DOMAIN_SUFFIX} "
-        f"-connect {client_id}.{DOMAIN_SUFFIX}:8443' root@{client_id}"
-    )
-    report_started(url, SSH_PORT, connect_cmd)
-    print(f"Connect via SSH-over-TLS:\n  {connect_cmd}")
+    ssh_url = info.get("secondaryUrl")
+    ssh_client_id = info.get("secondaryClientId")
+    report_log(f"Tunnel started: web url={web_url} clientId={client_id}")
+
+    if not ssh_client_id:
+        report_error(
+            "No secondary tunnel returned — the processor build may predate "
+            "secondaryLocalAddr support; SSH will not be reachable."
+        )
+        connect_cmd = None
+    else:
+        report_log(f"SSH tunnel ready: url={ssh_url} secondaryClientId={ssh_client_id}")
+        # Self-signed cert on the secondary connection; openssl s_client does not verify it.
+        connect_cmd = (
+            f"ssh -o ProxyCommand='openssl s_client -quiet "
+            f"-servername {ssh_client_id}.{DOMAIN_SUFFIX} "
+            f"-connect {ssh_client_id}.{DOMAIN_SUFFIX}:8443' root@{ssh_client_id}"
+        )
+
+    report_started(web_url, ssh_url, SSH_PORT, connect_cmd)
+    print(f"Web page:  {web_url}")
+    if connect_cmd:
+        print(f"Connect via SSH-over-TLS:\n  {connect_cmd}")
 
     stop_called = {"value": False}
 
