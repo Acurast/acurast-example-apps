@@ -21,6 +21,26 @@ An overview of the examples available in this repository.
 | [wasm](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-wasm)                   | Run wasm                                                      | TS, CLI, WASM                      |
 | [webserver](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-webserver)         | Run a webserver                                               | TS, CLI, Webserver                 |
 
+### Programming Languages
+
+Acurast's Shell (Cargo) runtime can run any language, not just Node.js. Each
+example below sets up a `proot-distro` rootfs, installs the language toolchain,
+then runs a minimal program that POSTs a JSON payload to a webhook. Use them as
+starting points for your own workloads in the language of your choice.
+
+| Project                                                                                         | Language |
+| ----------------------------------------------------------------------------------------------- | -------- |
+| [cargo-cpp](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-cpp)       | C++      |
+| [cargo-csharp](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-csharp) | C#       |
+| [cargo-go](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-go)         | Go       |
+| [cargo-java](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-java)     | Java     |
+| [cargo-nodejs](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-nodejs) | Node.js  |
+| [cargo-php](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-php)       | PHP      |
+| [cargo-python](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-python) | Python   |
+| [cargo-ruby](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-ruby)     | Ruby     |
+| [cargo-rust](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-rust)     | Rust     |
+| [cargo-zig](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-zig)       | Zig      |
+
 ### Benchmarks
 
 The [`apps/benchmarks/`](https://github.com/Acurast/acurast-example-apps/tree/main/apps/benchmarks)

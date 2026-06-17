@@ -1,0 +1,8 @@
+node_modules
+
+# Acurast CLI
+.acurast
+.env
+
+# C# build output
+*.exe

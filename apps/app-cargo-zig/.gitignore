@@ -1,0 +1,10 @@
+node_modules
+
+# Acurast CLI
+.acurast
+.env
+
+# Zig build output
+zig-cache
+.zig-cache
+zig-out
