@@ -400,3 +400,6 @@ FodyWeavers.xsd
 dist
 
 .DS_Store
+
+.env
+.acurast
