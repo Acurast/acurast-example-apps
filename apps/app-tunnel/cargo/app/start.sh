@@ -48,9 +48,17 @@ send_log "Local SSH server starting on port 2222"
 dropbear -F -E -p 2222 -R &
 DROPBEAR_PID=$!
 
-trap 'kill $DROPBEAR_PID $TUNNEL_PID 2>/dev/null' INT TERM EXIT
+echo "=== Web server starting on port 8080 ==="
+send_log "Local web server starting on port 8080"
 
-send_log "Local SSH server ready, starting Acurast reverse tunnel"
+# Static web page served over the PRIMARY (ACME) tunnel. The tunnel terminates
+# user-facing TLS and forwards plaintext HTTP here, so a plain http.server is fine.
+python3 -m http.server 8080 --bind 127.0.0.1 --directory "$SCRIPT_DIR/www" &
+WEB_PID=$!
+
+trap 'kill $DROPBEAR_PID $WEB_PID $TUNNEL_PID 2>/dev/null' INT TERM EXIT
+
+send_log "Local services ready (web on 8080, SSH on 2222), starting Acurast reverse tunnel"
 
 python3 "$SCRIPT_DIR/tunnel.py" &
 TUNNEL_PID=$!

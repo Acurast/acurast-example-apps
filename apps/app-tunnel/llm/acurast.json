@@ -27,7 +27,7 @@
       "numberOfReplicas": 1,
       "requiredModules": ["Shell"],
       "minProcessorVersions": {
-        "android": 122
+        "android": "1.26.0"
       },
       "minProcessorReputation": 0,
       "maxCostPerExecution": 70000000000,

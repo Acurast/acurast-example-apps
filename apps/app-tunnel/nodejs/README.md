@@ -9,7 +9,7 @@ The deployment runs with `numberOfReplicas: 2`, so two processors pick up the jo
 1. Connects to the Acurast P2P network to elect a leader among the assigned processors.
 2. The leader generates a P-256 identity, calls `_STD_.tunnel.start(...)`, and broadcasts the resulting certificate to followers.
 3. Followers wait for the leader's broadcast, then call `_STD_.tunnel.start(...)` with the same identity + certificate so each replica serves the same public URL.
-4. Once the tunnel is up, an HTTP server listens on `127.0.0.1:<LOCAL_ADDRESS_PORT>` and any inbound HTTPS request to `https://<clientId>.<DOMAIN_SUFFIX>:8443` is forwarded to it.
+4. Once the tunnel is up, an HTTP server listens on `127.0.0.1:<LOCAL_ADDRESS_PORT>` and any inbound HTTPS request to `https://<clientId>.<DOMAIN_SUFFIX>` is forwarded to it.
 
 Full tunnel docs: **[Tunnel Quick Start](https://docs.acurast.com/developers/getting-started/quickstart-tunnel)** + **[Node.js Tunnel API](https://docs.acurast.com/developers/build/nodejs-runtime-environment#tunnel)**.
 
@@ -64,9 +64,9 @@ If `CALLBACK_URL` is set, the deployment POSTs a `started` event once the tunnel
 {
   "event": "started",
   "data": {
-    "url": "https://<clientId>.<DOMAIN_SUFFIX>:8443",
+    "url": "https://<clientId>.<DOMAIN_SUFFIX>",
     "clientId": "<clientId>",
-    "secondaryUrl": "https://<secondaryClientId>.<DOMAIN_SUFFIX>:8443",
+    "secondaryUrl": "https://<secondaryClientId>.<DOMAIN_SUFFIX>",
     "secondaryClientId": "<secondaryClientId>"
   }
 }
@@ -75,5 +75,5 @@ If `CALLBACK_URL` is set, the deployment POSTs a `started` event once the tunnel
 Then hit the tunnel:
 
 ```bash
-curl -k https://<clientId>.<DOMAIN_SUFFIX>:8443/
+curl https://<clientId>.<DOMAIN_SUFFIX>
 ```
