@@ -21,7 +21,7 @@ local port each connection forwards to — `localAddr` for the web page, `second
 
 Once the tunnel is up:
 
-- Open the **web URL** (primary, `https://<clientId>.<DOMAIN_SUFFIX>:8443`) in a browser.
+- Open the **web URL** (primary, `https://<clientId>.<DOMAIN_SUFFIX>`) in a browser.
 - SSH in over the **secondary** URL:
 
 ```bash
@@ -65,7 +65,7 @@ Edit it to set:
 
 The default config targets Canary with one replica (`numberOfReplicas: 1`) and a 2-hour execution window. Adjust execution duration and reward as needed. See **[Deployment Config](https://docs.acurast.com/developers/build/deployment-config)** for the full field reference.
 
-> **Note:** `minProcessorVersions.android` is `125` — the `secondaryLocalAddr` field requires that processor build. On a processor older than 125 the deployment won't be assigned; lower it (and drop the secondary tunnel) if you need to target older processors.
+> **Note:** `minProcessorVersions.android` is `1.26.0`. On a processor older than version `1.26.0` the deployment won't work.
 
 ## Development
 
@@ -84,8 +84,8 @@ Tail your `CALLBACK_URL` webhook (or the deployment logs) for the `started` even
 ```json
 {
   "event": "started",
-  "webUrl": "https://<clientId>.<DOMAIN_SUFFIX>:8443",
-  "sshUrl": "https://<secondaryClientId>.<DOMAIN_SUFFIX>:8443",
+  "webUrl": "https://<clientId>.<DOMAIN_SUFFIX>",
+  "sshUrl": "https://<secondaryClientId>.<DOMAIN_SUFFIX>",
   "sshPort": 2222,
   "connect": "ssh -o ProxyCommand='openssl s_client -quiet -servername …' root@<secondaryClientId>"
 }

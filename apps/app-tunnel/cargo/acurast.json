@@ -28,10 +28,10 @@
       "numberOfReplicas": 1,
       "requiredModules": ["Shell"],
       "minProcessorVersions": {
-        "android": 125
+        "android": "1.26.0"
       },
       "minProcessorReputation": 0,
-      "maxCostPerExecution": 320540320000,
+      "maxCostPerExecution": 378889840000,
       "includeEnvironmentVariables": [
         "CALLBACK_URL",
         "SSH_PASSWORD"

@@ -29,13 +29,15 @@ TUNNEL_RELAYS = [
     "canary-relay.vincent-acurast.xyz:4433",
     "canary-relay.acurast.online:4433",
 ]
-DOMAIN_SUFFIX = "run.canary.acurast.com"
+DOMAIN_SUFFIX = "my-domain.com"
 # Primary (ACME) tunnel serves the web page; secondary (self-signed) maps to SSH.
 WEB_PORT = 8080
 SSH_PORT = 2222
 LOCAL_ADDR = f"127.0.0.1:{WEB_PORT}"
 SECONDARY_LOCAL_ADDR = f"127.0.0.1:{SSH_PORT}"
 STATUS_POLL_INTERVAL_SEC = 30
+# Issue Staging Let's Encrypt certificates. Set to False for production deployments
+STAGING_CERTIFICATE = True
 
 CALLBACK_URL = os.environ.get("CALLBACK_URL")
 BRIDGE_SOCKET = os.environ.get("BRIDGE_SOCKET")
@@ -51,7 +53,7 @@ def post_callback(payload):
         req = urlrequest.Request(
             CALLBACK_URL,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "User-Agent": "acurast-tunnel/0.1.3"},
             method="POST",
         )
         urlrequest.urlopen(req, timeout=10).close()
@@ -141,7 +143,7 @@ def main():
         # host opens the secondary connection automatically; we only choose its target.
         "secondaryLocalAddr": SECONDARY_LOCAL_ADDR,
         "primaryKey": {"algorithm": "Secp256r1", "bytes": key_b64},
-        "acmeStaging": False,
+        "acmeStaging": STAGING_CERTIFICATE,
     }
 
     report_log(f"Requesting reverse tunnel (web -> {LOCAL_ADDR}, ssh -> {SECONDARY_LOCAL_ADDR})")
@@ -164,7 +166,7 @@ def main():
         connect_cmd = (
             f"ssh -o ProxyCommand='openssl s_client -quiet "
             f"-servername {ssh_client_id}.{DOMAIN_SUFFIX} "
-            f"-connect {ssh_client_id}.{DOMAIN_SUFFIX}:8443' root@{ssh_client_id}"
+            f"-connect {ssh_client_id}.{DOMAIN_SUFFIX}:443' root@{ssh_client_id}"
         )
 
     report_started(web_url, ssh_url, SSH_PORT, connect_cmd)
