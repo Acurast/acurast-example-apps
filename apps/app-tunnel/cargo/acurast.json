@@ -9,11 +9,10 @@
         "url": "https://github.com/termux/proot-distro/releases/download/v4.30.1/ubuntu-questing-aarch64-pd-v4.30.1.tar.xz",
         "sha256": "5ab35b90cd9a9f180656261ba400a135c4c01c2da4b74522118342f985c2d328"
       },
-      "network": "canary",
+      "network": "mainnet",
       "onlyAttestedDevices": true,
       "assignmentStrategy": {
-        "type": "Single",
-        "instantMatch": []
+        "type": "Single"
       },
       "execution": {
         "type": "onetime",
@@ -31,12 +30,13 @@
         "android": "1.26.0"
       },
       "minProcessorReputation": 0,
-      "maxCostPerExecution": 378889840000,
+      "maxCostPerExecution": 32386593014,
       "includeEnvironmentVariables": [
         "CALLBACK_URL",
-        "SSH_PASSWORD"
-      ],
-      "processorWhitelist": []
+        "SSH_PASSWORD",
+        "DOMAIN_SUFFIX_MAINNET",
+        "NETWORK"
+      ]
     }
   }
 }

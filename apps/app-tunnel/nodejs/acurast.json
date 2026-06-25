@@ -25,8 +25,7 @@
       },
       "minProcessorReputation": 0,
       "maxCostPerExecution": 300000000000,
-      "includeEnvironmentVariables": ["CALLBACK_URL"],
-      "processorWhitelist": []
+      "includeEnvironmentVariables": ["CALLBACK_URL", "DOMAIN_SUFFIX_CANARY", "NETWORK"]
     }
   }
 }

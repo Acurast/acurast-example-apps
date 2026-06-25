@@ -21,15 +21,38 @@ from urllib import request as urlrequest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
-TUNNEL_RELAYS = [
-    "relay-2.canary.acurast.com:4433",
-    "canary-relay.5elementsnodes.com:4433",
-    "acurast-canary-relay.dishich.com:4433",
-    "relay.el9-acurast.com:4433",
-    "canary-relay.vincent-acurast.xyz:4433",
-    "canary-relay.acurast.online:4433",
-]
-DOMAIN_SUFFIX = "my-domain.com"
+# Network-specific values. Pick the set matching $NETWORK (see .env). Keep the
+# `network` field in acurast.json in sync with this — the CLI does not read $NETWORK.
+NETWORKS = {
+    "mainnet": {
+        "relays": [
+            "relay-1.mainnet.acurast.com:4433",
+        ],
+    },
+    "canary": {
+        "relays": [
+            "relay-2.canary.acurast.com:4433",
+            "canary-relay.5elementsnodes.com:4433",
+            "acurast-canary-relay.dishich.com:4433",
+            "relay.el9-acurast.com:4433",
+            "canary-relay.vincent-acurast.xyz:4433",
+            "canary-relay.acurast.online:4433",
+        ],
+    },
+}
+NETWORK = os.environ.get("NETWORK")
+if NETWORK not in NETWORKS:
+    print(f"NETWORK env var must be one of {list(NETWORKS)}; got {NETWORK!r}.", file=sys.stderr)
+    sys.exit(1)
+TUNNEL_RELAYS = NETWORKS[NETWORK]["relays"]
+# DNS suffix you control (wildcard `*` + `_acu` TXT records published). One name
+# per network — DOMAIN_SUFFIX_CANARY / DOMAIN_SUFFIX_MAINNET (see .env) — but only
+# the one matching $NETWORK needs to be set. Required.
+_DOMAIN_ENV = f"DOMAIN_SUFFIX_{NETWORK.upper()}"
+DOMAIN_SUFFIX = os.environ.get(_DOMAIN_ENV)
+if not DOMAIN_SUFFIX:
+    print(f"{_DOMAIN_ENV} env var not set; cannot start tunnel without a domain suffix.", file=sys.stderr)
+    sys.exit(1)
 # Primary (ACME) tunnel serves the web page; secondary (self-signed) maps to SSH.
 WEB_PORT = 8080
 SSH_PORT = 2222

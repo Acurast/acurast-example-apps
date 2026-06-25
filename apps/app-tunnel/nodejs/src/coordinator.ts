@@ -46,6 +46,8 @@ export class TunnelCoordinator implements Transport<CoordinatorState>, Persisten
         public readonly tunnelRelays: string[],
         public readonly domainSuffix: string,
         public readonly localAddress: string,
+        public readonly secondaryLocalAddress: string,
+        public readonly acmeStaging: boolean,
     ) {}
 
     private _peers?: PeerInfo[]
@@ -284,13 +286,17 @@ export class TunnelCoordinator implements Transport<CoordinatorState>, Persisten
         const spec: _TunnelSpec = {
             serverAddrs: this.tunnelRelays,
             domainSuffix: this.domainSuffix,
+            // Primary (ACME) connection forwards here.
             localAddr: this.localAddress,
+            // Secondary (self-signed) connection forwards here. The host opens the
+            // secondary connection automatically; we only choose its target.
+            secondaryLocalAddr: this.secondaryLocalAddress,
             primaryKey: {
                 algorithm: 'Secp256r1',
                 bytes: privateKeyHexToPkcs8Base64(this.keyPair.private)
             },
             certPem: certificate,
-            acmeStaging: false,
+            acmeStaging: this.acmeStaging,
         }
 
         const info: TunnelInfo = await _tunnelStart(spec)
@@ -508,6 +514,7 @@ type _TunnelSpec = {
     serverAddrs: string[]
     domainSuffix: string
     localAddr: string
+    secondaryLocalAddr?: string
     primaryKey: {
         algorithm: 'Secp256r1',
         bytes: string

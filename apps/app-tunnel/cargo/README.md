@@ -39,8 +39,7 @@ Full tunnel docs: **[Tunnel Quick Start](https://docs.acurast.com/developers/get
 
 | Constant | Purpose | Example |
 | --- | --- | --- |
-| `TUNNEL_RELAYS` | Tunnel relay endpoints to connect to. | `["relay-2.canary.acurast.com:4433"]` |
-| `DOMAIN_SUFFIX` | **Replace with your own domain suffix.** The DNS suffix you control where the wildcard `*` and `_acu` TXT records have been published (see Quick Start step 2). | `"tunnel.example.com"` |
+| `NETWORKS` | Per-network tunnel relay endpoints, keyed by `canary` / `mainnet`. The set matching the `NETWORK` env var is used at runtime. | `{ "canary": {...}, "mainnet": {...} }` |
 | `WEB_PORT` | Local port the web server listens on; the **primary** (ACME) tunnel forwards here. Must be >= 1024 (privileged ports can't be bound inside the proot sandbox). | `8080` |
 | `SSH_PORT` | Local port dropbear listens on; the **secondary** (self-signed) tunnel forwards here. Must be >= 1024. | `2222` |
 | `LOCAL_ADDR` | Primary tunnel target, i.e. `127.0.0.1:<WEB_PORT>` (the web page). | `"127.0.0.1:8080"` |
@@ -58,6 +57,8 @@ Edit it to set:
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `ACURAST_MNEMONIC` | yes | Your deployer's seed phrase. Used by the CLI to sign the on-chain deployment extrinsic. **Do not commit.** |
+| `NETWORK` | yes | Target network: `canary` or `mainnet`. Selects the tunnel relays at runtime (via the `NETWORKS` map). **Must match the `network` field in `acurast.json`** — the CLI does not read this variable. |
+| `DOMAIN_SUFFIX_CANARY` / `DOMAIN_SUFFIX_MAINNET` | active one | **Your own domain suffix**, one name per network. The DNS suffix you control where the wildcard `*` and `_acu` TXT records have been published (see Quick Start step 2). Set only the one matching `NETWORK`; that same var must be the one listed in `acurast.json`'s `includeEnvironmentVariables` (the CLI rejects empty forwarded vars, so the inactive one is not listed). |
 | `SSH_PASSWORD` | no (defaults to `password`) | Root password for the dropbear SSH session. **Strongly recommend setting a strong value** — `password` is for testing only. |
 | `CALLBACK_URL` | no | Webhook URL that receives JSON events (`log`, `started`, `error`) during the deployment lifecycle. Useful for grabbing the web URL and SSH connect command. |
 
