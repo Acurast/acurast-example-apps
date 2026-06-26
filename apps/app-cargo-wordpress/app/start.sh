@@ -157,14 +157,30 @@ if [ ! -f /var/www/html/wp-settings.php ]; then
     rm -rf /tmp/wordpress /tmp/wp.tar.gz
 fi
 
-# Our wp-config.php (DB creds from env, dynamic site URL) + fresh salts.
+# Our wp-config.php (DB creds from env, dynamic site URL).
 cp "$SCRIPT_DIR/wp-config.php" /var/www/html/wp-config.php
-if ! grep -q 'AUTH_KEY' /var/www/html/wp-config.php; then
-    SALTS="$(curl -fsSL https://api.wordpress.org/secret-key/1.1/salt/ || true)"
-    if [ -n "$SALTS" ]; then
-        printf '\n%s\n' "$SALTS" >> /var/www/html/wp-config.php
-    fi
+
+# Secret keys/salts: generate ONCE into a persistent file (readable by www-data,
+# outside the docroot) that wp-config.php requires. Generated locally from
+# /dev/urandom — NOT fetched from api.wordpress.org — so the salts are always
+# present and identical across every request for the deployment's lifetime.
+# Missing or per-request-changing salts make WordPress unable to validate its
+# own auth cookie, which shows up as an endless wp-login.php loop after a
+# successful login (the auth cookie is issued, then rejected on the next request).
+SALT_FILE=/usr/local/etc/wp-salts.php
+if [ ! -f "$SALT_FILE" ]; then
+    mkdir -p /usr/local/etc
+    {
+        echo "<?php"
+        for k in AUTH_KEY SECURE_AUTH_KEY LOGGED_IN_KEY NONCE_KEY \
+                 AUTH_SALT SECURE_AUTH_SALT LOGGED_IN_SALT NONCE_SALT; do
+            v="$(head -c 48 /dev/urandom | base64 | tr -d '\n')"
+            printf "define('%s', '%s');\n" "$k" "$v"
+        done
+    } > "$SALT_FILE"
 fi
+chown root:www-data "$SALT_FILE" 2>/dev/null || true
+chmod 640 "$SALT_FILE"
 chown -R www-data:www-data /var/www/html
 
 # --- Apache on 127.0.0.1:8080 (the tunnel's PRIMARY connection forwards this) ---
