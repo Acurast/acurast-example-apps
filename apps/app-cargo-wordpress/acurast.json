@@ -11,6 +11,9 @@
       },
       "network": "mainnet",
       "onlyAttestedDevices": true,
+      "startAt": {
+        "msFromNow": 180000
+      },
       "assignmentStrategy": {
         "type": "Single"
       },

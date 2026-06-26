@@ -104,12 +104,17 @@ fail_keep_alive() {
 # or by forwarding 5432 over the SSH session (secondary, `ssh -L`).
 send_log "Phase 2: installing PostgreSQL"
 if [ -z "$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null)" ]; then
-    apt-get install -y postgresql || fail_keep_alive "apt install of postgresql failed"
+    # The postgresql package postinst runs pg_createcluster -> initdb, which fails
+    # under proot (no SysV shm during apt), so apt-get returns non-zero even though
+    # the binaries install fine. Don't treat that as fatal — we run our own initdb
+    # later with the shm shim preloaded. Only a truly missing binary is fatal (the
+    # PG_BIN check below).
+    apt-get install -y postgresql || send_log "postgresql postinst failed (expected under proot); continuing"
 fi
 
 PG_BIN="$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1)"
 if [ -z "$PG_BIN" ]; then
-    fail_keep_alive "Could not locate PostgreSQL binaries"
+    fail_keep_alive "Could not locate PostgreSQL binaries after apt install"
 fi
 
 # The package postinst does not reliably create the postgres system user inside

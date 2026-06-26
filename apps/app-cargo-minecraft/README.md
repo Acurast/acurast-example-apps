@@ -29,9 +29,11 @@ the SSH session carries the raw TCP, no TLS wrapper needed on the client.
 
 ## Connect
 
-Get the command from the `started` callback event, then open an SSH session with
-the game port forwarded (SSH is the **secondary** connection — self-signed cert,
-port `443`):
+The `started` callback carries two commands: `connect` (interactive shell, for
+debugging) and `forward` (local-forwards the game port to play). SSH is the
+**secondary** connection — self-signed cert, port `443`.
+
+To play, run `forward` (local-forwards `25565`):
 
 ```bash
 ssh -N -L 25565:127.0.0.1:25565 \
@@ -43,6 +45,18 @@ ssh -N -L 25565:127.0.0.1:25565 \
 
 Leave it running, then in your Minecraft client add a server with address
 `127.0.0.1:25565` and join.
+
+To debug the deployment, run `connect` for a shell (no `-N`, no `-L`):
+
+```bash
+ssh -o ProxyCommand='openssl s_client -quiet \
+    -servername <secondaryClientId>.<DOMAIN_SUFFIX> \
+    -connect <secondaryClientId>.<DOMAIN_SUFFIX>:443' \
+  root@<secondaryClientId>
+```
+
+> **Do not add `-N`** to the shell command — `-N` suppresses the remote shell, so
+> the session only forwards ports and looks like it hangs after the password.
 
 > **Direct (primary) connection:** the game port is also reachable on the primary
 > (Let's Encrypt) connection at `<clientId>.<DOMAIN_SUFFIX>`, but the relay

@@ -90,7 +90,7 @@ def report_log(message):
     post_callback({"event": "log", "message": message})
 
 
-def report_started(url, ssh_url, ssh_port, mc_port, connect):
+def report_started(url, ssh_url, ssh_port, mc_port, connect, forward):
     post_callback({
         "event": "started",
         "url": url,
@@ -98,6 +98,7 @@ def report_started(url, ssh_url, ssh_port, mc_port, connect):
         "sshPort": ssh_port,
         "mcPort": mc_port,
         "connect": connect,
+        "forward": forward,
     })
 
 
@@ -185,22 +186,28 @@ def main():
             "secondaryLocalAddr support; SSH (the easy play path) will not be reachable."
         )
         connect_cmd = None
+        forward_cmd = None
     else:
         report_log(f"SSH tunnel ready: url={ssh_url} secondaryClientId={ssh_client_id}")
         # SSH rides the self-signed secondary connection; openssl s_client does not
-        # verify the cert. Local-forward the game port so the Minecraft client just
-        # connects to 127.0.0.1:<MC_PORT>.
-        connect_cmd = (
-            f"ssh -N -L {MC_PORT}:127.0.0.1:{MC_PORT} "
+        # verify the cert. `connect_cmd` opens an interactive shell (use this to
+        # debug a failed deployment); `forward_cmd` adds a local-forward of the game
+        # port so the Minecraft client just connects to 127.0.0.1:<MC_PORT>. Note:
+        # NO -N on the shell command — -N suppresses the shell, so it only forwards
+        # ports and looks like it hangs.
+        proxy = (
             f"-o ProxyCommand='openssl s_client -quiet "
             f"-servername {ssh_client_id}.{DOMAIN_SUFFIX} "
-            f"-connect {ssh_client_id}.{DOMAIN_SUFFIX}:443' root@{ssh_client_id}"
+            f"-connect {ssh_client_id}.{DOMAIN_SUFFIX}:443'"
         )
+        connect_cmd = f"ssh {proxy} root@{ssh_client_id}"
+        forward_cmd = f"ssh -N -L {MC_PORT}:127.0.0.1:{MC_PORT} {proxy} root@{ssh_client_id}"
 
-    report_started(url, ssh_url, SSH_PORT, MC_PORT, connect_cmd)
+    report_started(url, ssh_url, SSH_PORT, MC_PORT, connect_cmd, forward_cmd)
     print(f"Minecraft server tunnel (primary):\n  {url}")
     if connect_cmd:
-        print(f"Play via SSH local-forward (secondary):\n  {connect_cmd}")
+        print(f"SSH shell (debug):\n  {connect_cmd}")
+        print(f"Play via SSH local-forward (secondary):\n  {forward_cmd}")
 
     stop_called = {"value": False}
 

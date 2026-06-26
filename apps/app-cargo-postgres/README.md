@@ -57,8 +57,20 @@ see the security note above.
 ### Native `psql` over SSH (secondary)
 
 SSH rides the secondary (self-signed) connection — `openssl s_client` in the
-`ProxyCommand` does not verify the cert. Get the command from the `started`
-event, then local-forward `5432`:
+`ProxyCommand` does not verify the cert. The `started` event carries two
+commands: `connect` (interactive shell, for debugging a failed deployment) and
+`forward` (local-forwards `5432` for native `psql`).
+
+Shell in to debug (`connect`):
+
+```bash
+ssh -o ProxyCommand='openssl s_client -quiet \
+    -servername <secondaryClientId>.<DOMAIN_SUFFIX> \
+    -connect <secondaryClientId>.<DOMAIN_SUFFIX>:443' \
+  root@<secondaryClientId>
+```
+
+Native `psql` via local-forward (`forward`):
 
 ```bash
 ssh -N -L 5432:127.0.0.1:5432 \
@@ -69,6 +81,9 @@ ssh -N -L 5432:127.0.0.1:5432 \
 # then, in another terminal:
 psql -h 127.0.0.1 -p 5432 -U <POSTGRES_USER> -d <POSTGRES_DB>
 ```
+
+> **Do not add `-N`** to the shell command — `-N` suppresses the remote shell, so
+> the session only forwards ports and looks like it hangs after the password.
 
 Full tunnel docs: **[Tunnel Quick Start](https://docs.acurast.com/developers/getting-started/quickstart-tunnel)** + **[Cargo Tunnel API](https://docs.acurast.com/developers/build/cargo-runtime-environment#tunnel)**.
 
@@ -121,11 +136,13 @@ Tail your `CALLBACK_URL` webhook (or deployment logs) for the `started` event:
   "url": "https://<clientId>.<DOMAIN_SUFFIX>",
   "sshUrl": "https://<secondaryClientId>.<DOMAIN_SUFFIX>",
   "sshPort": 2222,
-  "connect": "ssh -N -L 5432:127.0.0.1:5432 -o ProxyCommand='openssl s_client …' root@<secondaryClientId>"
+  "connect": "ssh -o ProxyCommand='openssl s_client …' root@<secondaryClientId>",
+  "forward": "ssh -N -L 5432:127.0.0.1:5432 -o ProxyCommand='openssl s_client …' root@<secondaryClientId>"
 }
 ```
 
-Open `url` in a browser for the SQL console; run `connect` for native `psql`.
+Open `url` in a browser for the SQL console; run `connect` for a debug shell or
+`forward` for native `psql`.
 
 ## Notes
 
