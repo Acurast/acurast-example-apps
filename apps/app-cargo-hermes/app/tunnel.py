@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Acurast reverse-tunnel client for the Cargo SSH deployment.
+"""Acurast reverse-tunnel client for the Cargo Hermes deployment.
 
 Generates a P-256 identity key, then asks the Acurast Processor (via the JSON-RPC
-bridge on the abstract Unix socket named in $BRIDGE_SOCKET) to open a
-reverse tunnel forwarding inbound traffic to the local dropbear instance.
+bridge on the abstract Unix socket named in $BRIDGE_SOCKET) to open a reverse
+tunnel with TWO connections: the PRIMARY (Let's Encrypt cert) forwards to the
+local Hermes WebUI (plain HTTP, so the tunnel URL opens directly in a browser);
+the SECONDARY (self-signed) forwards to a local dropbear SSH instance for the
+`hermes` CLI and debugging.
 """
 
 import base64
@@ -52,8 +55,11 @@ DOMAIN_SUFFIX = os.environ.get(_DOMAIN_ENV)
 if not DOMAIN_SUFFIX:
     print(f"{_DOMAIN_ENV} env var not set; cannot start tunnel without a domain suffix.", file=sys.stderr)
     sys.exit(1)
-SSH_PORT = 2222
-LOCAL_ADDR = f"127.0.0.1:{SSH_PORT}"
+# Primary (ACME) tunnel serves the Hermes WebUI; secondary (self-signed) maps to SSH.
+WEBUI_PORT = int(os.environ.get("HERMES_WEBUI_PORT", "8787"))
+SSH_PORT = int(os.environ.get("SSH_PORT", "2222"))
+LOCAL_ADDR = f"127.0.0.1:{WEBUI_PORT}"
+SECONDARY_LOCAL_ADDR = f"127.0.0.1:{SSH_PORT}"
 STATUS_POLL_INTERVAL_SEC = 30
 
 CALLBACK_URL = os.environ.get("CALLBACK_URL")
@@ -83,8 +89,15 @@ def report_log(message):
     post_callback({"event": "log", "message": message})
 
 
-def report_started(url, ssh_port, connect):
-    post_callback({"event": "started", "url": url, "sshPort": ssh_port, "connect": connect})
+def report_started(url, ssh_url, ssh_port, webui_port, connect):
+    post_callback({
+        "event": "started",
+        "url": url,
+        "sshUrl": ssh_url,
+        "sshPort": ssh_port,
+        "webuiPort": webui_port,
+        "connect": connect,
+    })
 
 
 def report_error(message):
@@ -148,23 +161,43 @@ def main():
     spec = {
         "serverAddrs": TUNNEL_RELAYS,
         "domainSuffix": DOMAIN_SUFFIX,
+        # Primary (ACME) connection forwards here — the Hermes WebUI (HTTP).
         "localAddr": LOCAL_ADDR,
+        # Secondary (self-signed) connection forwards here — the SSH server. The
+        # host opens the secondary connection automatically; we only choose its target.
+        "secondaryLocalAddr": SECONDARY_LOCAL_ADDR,
         "primaryKey": {"algorithm": "Secp256r1", "bytes": key_b64},
         "acmeStaging": False,
     }
 
-    report_log(f"Requesting reverse tunnel to {LOCAL_ADDR}")
+    report_log(f"Requesting reverse tunnel (webui -> {LOCAL_ADDR}, ssh -> {SECONDARY_LOCAL_ADDR})")
     info = rpc_call("tunnel_start", [spec])
     url = info.get("url")
     client_id = info.get("clientId")
-    report_log(f"Tunnel started: url={url} clientId={client_id}")
-    connect_cmd = (
-        f"ssh -o ProxyCommand='openssl s_client -quiet "
-        f"-servername {client_id}.{DOMAIN_SUFFIX} "
-        f"-connect {client_id}.{DOMAIN_SUFFIX}:8443' root@{client_id}"
-    )
-    report_started(url, SSH_PORT, connect_cmd)
-    print(f"Connect via SSH-over-TLS:\n  {connect_cmd}")
+    ssh_url = info.get("secondaryUrl")
+    ssh_client_id = info.get("secondaryClientId")
+    report_log(f"Tunnel started: webui url={url} clientId={client_id}")
+
+    if not ssh_client_id:
+        report_error(
+            "No secondary tunnel returned — the processor build may predate "
+            "secondaryLocalAddr support; SSH (the `hermes` CLI + debug path) will not be reachable."
+        )
+        connect_cmd = None
+    else:
+        report_log(f"SSH tunnel ready: url={ssh_url} secondaryClientId={ssh_client_id}")
+        # SSH rides the self-signed secondary connection; openssl s_client does not
+        # verify the cert. Use this for the `hermes` CLI or to debug a failed start.
+        connect_cmd = (
+            f"ssh -o ProxyCommand='openssl s_client -quiet "
+            f"-servername {ssh_client_id}.{DOMAIN_SUFFIX} "
+            f"-connect {ssh_client_id}.{DOMAIN_SUFFIX}:443' root@{ssh_client_id}"
+        )
+
+    report_started(url, ssh_url, SSH_PORT, WEBUI_PORT, connect_cmd)
+    print(f"Hermes WebUI (open in browser):\n  {url}")
+    if connect_cmd:
+        print(f"SSH shell — `hermes` CLI / debug (secondary):\n  {connect_cmd}")
 
     stop_called = {"value": False}
 
