@@ -32,6 +32,11 @@ SSH_PORT=2222
 GATEWAY_PORT=18789
 OPENCLAW_CONFIG_DIR="$HOME/.openclaw"
 OPENCLAW_CONFIG="$OPENCLAW_CONFIG_DIR/openclaw.json"
+# tunnel.py writes the public Control UI origin (https://<clientId>.<suffix>)
+# here once the tunnel is up; phase 2 reads it into gateway.controlUi.allowedOrigins.
+ORIGIN_FILE=/tmp/acurast-primary-origin
+export PRIMARY_ORIGIN_FILE="$ORIGIN_FILE"
+rm -f "$ORIGIN_FILE"
 # OpenRouter sub-model OpenClaw uses (the openrouter/ prefix is added in the
 # config). Override via the OPENCLAW_MODEL deployment env var.
 OPENCLAW_MODEL="${OPENCLAW_MODEL:-openai/gpt-4o-mini}"
@@ -174,14 +179,42 @@ mkdir -p "$OPENCLAW_CONFIG_DIR"
 if [ -z "$OPENROUTER_API_KEY" ]; then
     send_log "No OPENROUTER_API_KEY set — OpenClaw will start but cannot call a model until you add a key in the Control UI."
 fi
+
+# --- Control UI allowed origins (CRITICAL for the public tunnel URL) ---
+# The gateway binds loopback and only accepts Control UI WebSocket connections
+# whose browser Origin is whitelisted; it does NOT accept wildcards. The public
+# tunnel origin (https://<clientId>.<suffix>) is only known once tunnel.py opens
+# the tunnel, so wait for it (written to $ORIGIN_FILE) before writing the config.
+PRIMARY_ORIGIN=""
+i=0
+while [ "$i" -lt 60 ]; do
+    if [ -s "$ORIGIN_FILE" ]; then
+        PRIMARY_ORIGIN="$(cat "$ORIGIN_FILE")"
+        break
+    fi
+    i=$((i + 1))
+    sleep 1
+done
+if [ -n "$PRIMARY_ORIGIN" ]; then
+    send_log "Allowing Control UI origin $PRIMARY_ORIGIN"
+    ALLOWED_ORIGINS="\"$PRIMARY_ORIGIN\", \"http://localhost:${GATEWAY_PORT}\", \"http://127.0.0.1:${GATEWAY_PORT}\""
+else
+    report_error "Primary tunnel origin not available after 60s — Control UI will reject the public URL (origin not allowed). The WebUI may be unreachable; SSH still works."
+    ALLOWED_ORIGINS="\"http://localhost:${GATEWAY_PORT}\", \"http://127.0.0.1:${GATEWAY_PORT}\""
+fi
+
 cat > "$OPENCLAW_CONFIG" <<JSON
 {
   "gateway": {
+    "mode": "local",
     "port": ${GATEWAY_PORT},
     "bind": "loopback",
     "auth": {
       "mode": "password",
       "password": "\${OPENCLAW_GATEWAY_PASSWORD}"
+    },
+    "controlUi": {
+      "allowedOrigins": [ ${ALLOWED_ORIGINS} ]
     }
   },
   "models": {
@@ -203,7 +236,11 @@ JSON
 # tunnel; configure chat channels (WhatsApp, Telegram, Discord, Slack, Signal) in
 # the UI or via `openclaw onboard` over SSH. ---
 send_log "Phase 2: starting OpenClaw gateway (Control UI) on 127.0.0.1:${GATEWAY_PORT}"
-openclaw gateway --port "$GATEWAY_PORT" >/tmp/openclaw-gateway.log 2>&1 &
+# `gateway run` is the FOREGROUND server; plain `gateway` (and `gateway start`)
+# expect a service manager (launchd/systemd), absent in proot. `--force` clears
+# any stale listener/supervisor holding the port (otherwise a second instance
+# fails with "port in use"/lock timeout and requests stall).
+openclaw gateway run --port "$GATEWAY_PORT" --force >/tmp/openclaw-gateway.log 2>&1 &
 GATEWAY_PID=$!
 
 send_log "OpenClaw ready — open the primary tunnel URL in a browser, or SSH in and run: openclaw"

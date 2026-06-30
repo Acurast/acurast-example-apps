@@ -61,6 +61,9 @@ SSH_PORT = int(os.environ.get("SSH_PORT", "2222"))
 LOCAL_ADDR = f"127.0.0.1:{UI_PORT}"
 SECONDARY_LOCAL_ADDR = f"127.0.0.1:{SSH_PORT}"
 STATUS_POLL_INTERVAL_SEC = 30
+# start.sh polls this file for the public Control UI origin so it can whitelist it
+# in gateway.controlUi.allowedOrigins (the gateway rejects non-whitelisted origins).
+ORIGIN_FILE = os.environ.get("PRIMARY_ORIGIN_FILE")
 
 CALLBACK_URL = os.environ.get("CALLBACK_URL")
 BRIDGE_SOCKET = os.environ.get("BRIDGE_SOCKET")
@@ -177,6 +180,17 @@ def main():
     ssh_url = info.get("secondaryUrl")
     ssh_client_id = info.get("secondaryClientId")
     report_log(f"Tunnel started: ui url={url} clientId={client_id}")
+
+    # Publish the public Control UI origin so start.sh can whitelist it before
+    # starting the gateway (origin = https://<clientId>.<domainSuffix>).
+    if ORIGIN_FILE and client_id:
+        origin = f"https://{client_id}.{DOMAIN_SUFFIX}"
+        try:
+            with open(ORIGIN_FILE, "w") as f:
+                f.write(origin)
+            report_log(f"Wrote Control UI origin {origin} to {ORIGIN_FILE}")
+        except OSError as e:
+            report_error(f"failed to write origin file {ORIGIN_FILE}: {e}")
 
     if not ssh_client_id:
         report_error(
