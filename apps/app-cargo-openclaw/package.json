@@ -1,7 +1,7 @@
 {
   "name": "app-cargo-openclaw",
   "version": "0.0.1",
-  "description": "Acurast example: run the OpenClaw AI assistant on a processor, reachable over SSH via the Acurast Tunnel",
+  "description": "Acurast example: run the OpenClaw AI assistant on a processor, reachable via a browser Control UI (primary) and SSH (secondary) over the Acurast Tunnel",
   "scripts": {
     "deploy": "acurast deploy"
   },

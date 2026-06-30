@@ -2,12 +2,15 @@
 set -e
 
 # Cargo entrypoint: runs the OpenClaw AI assistant (https://openclaw.ai) on the
-# processor, reachable over SSH via the Acurast reverse tunnel. SSH in, then run
-# `openclaw onboard` to set it up.
+# processor, exposed two ways over the Acurast reverse tunnel:
+#   - PRIMARY connection -> OpenClaw Control UI (HTTP on 18789). Open the tunnel
+#     URL in a browser for the full chat / config / sessions dashboard.
+#   - SECONDARY connection -> SSH (dropbear on 2222). SSH in for the `openclaw`
+#     CLI or to debug.
 #
 # Setup is split into two phases on purpose: phase 1 installs the minimal deps,
 # brings up SSH, and starts the tunnel FIRST, so if the heavier Node.js/OpenClaw
-# install in phase 2 stalls or fails you can still SSH into the machine to debug.
+# install in phase 2 stalls or fails you can still SSH in (secondary) to debug.
 
 echo "=== Setting up environment ==="
 export HOME=/root
@@ -24,9 +27,18 @@ NODE_VERSION=v24.16.0
 NODE_DIST="node-${NODE_VERSION}-linux-arm64"
 NODE_DIR="/usr/local/lib/nodejs/${NODE_DIST}"
 SSH_PORT=2222
+# Port the OpenClaw Control UI (gateway) listens on; the tunnel's PRIMARY
+# connection forwards here. Matches OpenClaw's own default (18789).
+GATEWAY_PORT=18789
+OPENCLAW_CONFIG_DIR="$HOME/.openclaw"
+OPENCLAW_CONFIG="$OPENCLAW_CONFIG_DIR/openclaw.json"
+# OpenRouter sub-model OpenClaw uses (the openrouter/ prefix is added in the
+# config). Override via the OPENCLAW_MODEL deployment env var.
+OPENCLAW_MODEL="${OPENCLAW_MODEL:-openai/gpt-4o-mini}"
 
 DROPBEAR_PID=""
 TUNNEL_PID=""
+GATEWAY_PID=""
 
 apt-get update
 if ! command -v curl >/dev/null 2>&1; then apt-get install -y curl; fi
@@ -37,6 +49,7 @@ finish() {
     code=$?
     [ -n "$DROPBEAR_PID" ] && kill "$DROPBEAR_PID" 2>/dev/null || true
     [ -n "$TUNNEL_PID" ] && kill "$TUNNEL_PID" 2>/dev/null || true
+    [ -n "$GATEWAY_PID" ] && kill "$GATEWAY_PID" 2>/dev/null || true
     if [ "$code" -ne 0 ]; then
         echo "ERROR: start.sh exiting with code $code"
         report_error "start.sh exited with code $code"
@@ -47,7 +60,8 @@ trap finish EXIT INT TERM
 
 # =========================================================================
 # Phase 1 — minimal deps, SSH, and the tunnel. Keep this fast and reliable so
-# the deployment is reachable before the heavy install runs.
+# the deployment is reachable (via the secondary SSH connection) before the
+# heavy install runs.
 # =========================================================================
 send_log "Phase 1: installing SSH + tunnel deps (dropbear, python3, build tools)"
 apt-get install -y dropbear gcc libc6-dev python3 python3-cryptography xz-utils ca-certificates
@@ -60,22 +74,31 @@ fi
 export LD_PRELOAD="$GETIFADDRS_OVERRIDE_SO"
 
 # --- Make the toolchain + secrets available to the interactive SSH session ---
-# (Written now, before the install finishes; the Node PATH resolves once phase 2
-# drops the binaries in place.)
+# (Written now, before the install finishes; the Node/openclaw PATH resolves
+# once phase 2 drops the binaries in place.)
 mkdir -p /etc/profile.d
 echo "export LD_PRELOAD=$GETIFADDRS_OVERRIDE_SO" > /etc/profile.d/ifaddrs-shim.sh
 echo "export PATH=${NODE_DIR}/bin:\$PATH" > /etc/profile.d/nodejs.sh
-env | grep -E '^(ANTHROPIC_API_KEY|OPENAI_API_KEY|CALLBACK_URL|DOMAIN_SUFFIX)=' \
+env | grep -E '^(OPENROUTER_API_KEY|OPENCLAW_GATEWAY_PASSWORD|CALLBACK_URL|DOMAIN_SUFFIX)=' \
     | sed 's/^/export /' > /etc/profile.d/acurast-env.sh
+# The gateway and the interactive SSH session must agree on the Control UI port.
+echo "export OPENCLAW_GATEWAY_PORT=$GATEWAY_PORT" >> /etc/profile.d/acurast-env.sh
+# OPENCLAW_MODEL may come from the deployment env or fall back to the default
+# above; make sure the interactive SSH session sees the resolved value.
+echo "export OPENCLAW_MODEL=$OPENCLAW_MODEL" >> /etc/profile.d/acurast-env.sh
 
-cat > /etc/motd <<'MOTD'
+cat > /etc/motd <<MOTD
 
-  OpenClaw on Acurast. To set up:
+  OpenClaw on Acurast.
 
-      openclaw onboard
+  Control UI: open the PRIMARY tunnel URL in your browser (HTTP on :${GATEWAY_PORT}).
+  CLI:        you are in the SSH (secondary) session — run:
 
-  Your LLM API key is already exported from your deployment env.
-  (If `openclaw` is not found yet, phase-2 install is still running — wait a bit.)
+      openclaw
+
+  OpenClaw is configured to use OpenRouter (model: openrouter/${OPENCLAW_MODEL}).
+  OPENROUTER_API_KEY is already exported from your deployment env.
+  (If \`openclaw\` is not found yet, the phase-2 install is still running — wait a bit.)
 
 MOTD
 
@@ -94,14 +117,15 @@ python3 "$SCRIPT_DIR/tunnel.py" &
 TUNNEL_PID=$!
 
 # =========================================================================
-# Phase 2 — Node.js + OpenClaw. Any failure (or hang) must NOT tear down SSH +
-# the tunnel, so you can always SSH in to inspect. fail_keep_alive reports the
-# problem then blocks on the tunnel.
+# Phase 2 — Node.js + OpenClaw, then the OpenClaw gateway (which serves the
+# Control UI). Any failure (or hang) must NOT tear down SSH + the tunnel, so you
+# can always SSH in (secondary) to inspect. fail_keep_alive reports the problem
+# then blocks on the tunnel.
 # =========================================================================
 set +e
 
 fail_keep_alive() {
-    report_error "$1 — SSH in to debug; SSH + tunnel left running."
+    report_error "$1 — SSH in (secondary connection) to debug; SSH + tunnel left running."
     send_log "Phase 2 failed; keeping SSH + tunnel alive for debugging"
     wait "$TUNNEL_PID"
     exit 1
@@ -124,7 +148,65 @@ if ! command -v openclaw >/dev/null 2>&1; then
     npm install -g openclaw || fail_keep_alive "npm install -g openclaw failed"
 fi
 
-send_log "OpenClaw ready — SSH in and run: openclaw onboard"
+# --- Control UI auth (CRITICAL) ---
+# The gateway binds loopback and the tunnel forwards FROM loopback, so a default
+# config treats every request as local and serves the Control UI WITHOUT auth —
+# but the primary tunnel URL is public. Without a password it is an open,
+# unauthenticated agent that can run commands. If none was provided, generate a
+# strong one and report it via CALLBACK_URL so the URL is never left unprotected.
+if [ -z "$OPENCLAW_GATEWAY_PASSWORD" ]; then
+    OPENCLAW_GATEWAY_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(18))')"
+    export OPENCLAW_GATEWAY_PASSWORD
+    echo "export OPENCLAW_GATEWAY_PASSWORD=$OPENCLAW_GATEWAY_PASSWORD" >> /etc/profile.d/acurast-env.sh
+    send_callback "{\"event\":\"webui_password\",\"password\":\"${OPENCLAW_GATEWAY_PASSWORD}\"}"
+    send_log "OPENCLAW_GATEWAY_PASSWORD was not set — generated one (sent as the webui_password callback event). Use it to log into the Control UI."
+fi
+
+# --- OpenClaw config (skip the interactive `openclaw onboard` wizard) ---
+# Write a minimal headless config: bind the gateway to loopback on $GATEWAY_PORT
+# (the tunnel's PRIMARY connection forwards here), force password auth on the
+# Control UI (see above), pin the model provider to OpenRouter, and set the
+# default agent model. apiKey/password use ${ENV} substitution so the secret is
+# resolved from the process env, not written into the file; the (non-secret)
+# model id is inlined.
+send_log "Phase 2: writing OpenClaw config ($OPENCLAW_CONFIG), model=openrouter/$OPENCLAW_MODEL"
+mkdir -p "$OPENCLAW_CONFIG_DIR"
+if [ -z "$OPENROUTER_API_KEY" ]; then
+    send_log "No OPENROUTER_API_KEY set — OpenClaw will start but cannot call a model until you add a key in the Control UI."
+fi
+cat > "$OPENCLAW_CONFIG" <<JSON
+{
+  "gateway": {
+    "port": ${GATEWAY_PORT},
+    "bind": "loopback",
+    "auth": {
+      "mode": "password",
+      "password": "\${OPENCLAW_GATEWAY_PASSWORD}"
+    }
+  },
+  "models": {
+    "providers": {
+      "openrouter": { "apiKey": "\${OPENROUTER_API_KEY}" }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": "openrouter/${OPENCLAW_MODEL}"
+    }
+  }
+}
+JSON
+
+# --- OpenClaw gateway (serves the Control UI + bridges chat channels). Runs in
+# the foreground (the `install` subcommand registers a systemd/launchd service,
+# absent in proot), so background it. The Control UI is reachable via the primary
+# tunnel; configure chat channels (WhatsApp, Telegram, Discord, Slack, Signal) in
+# the UI or via `openclaw onboard` over SSH. ---
+send_log "Phase 2: starting OpenClaw gateway (Control UI) on 127.0.0.1:${GATEWAY_PORT}"
+openclaw gateway --port "$GATEWAY_PORT" >/tmp/openclaw-gateway.log 2>&1 &
+GATEWAY_PID=$!
+
+send_log "OpenClaw ready — open the primary tunnel URL in a browser, or SSH in and run: openclaw"
 
 # Block on the tunnel; if it dies, tear everything down.
 TUNNEL_EXIT=0

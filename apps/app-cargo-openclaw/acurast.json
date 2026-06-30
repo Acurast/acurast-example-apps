@@ -11,12 +11,15 @@
       },
       "network": "mainnet",
       "onlyAttestedDevices": true,
+      "startAt": {
+        "msFromNow": 180000
+      },
       "assignmentStrategy": {
         "type": "Single"
       },
       "execution": {
         "type": "onetime",
-        "maxExecutionTimeInMs": 7200000
+        "maxExecutionTimeInMs": 14400000
       },
       "maxAllowedStartDelayInMs": 10000,
       "usageLimit": {
@@ -36,8 +39,9 @@
         "DOMAIN_SUFFIX_MAINNET",
         "NETWORK",
         "SSH_PASSWORD",
-        "ANTHROPIC_API_KEY",
-        "OPENAI_API_KEY"
+        "OPENROUTER_API_KEY",
+        "OPENCLAW_MODEL",
+        "OPENCLAW_GATEWAY_PASSWORD"
       ],
       "processorWhitelist": []
     }
