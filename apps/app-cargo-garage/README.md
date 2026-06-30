@@ -68,6 +68,49 @@ ssh -o ProxyCommand='openssl s_client -quiet \
   root@<secondaryClientId>
 ```
 
+### Browse with a web UI
+
+No deployment change needed — any client-side, browser-based S3 explorer hosted on
+GitHub works. Point it at the tunnel endpoint and the generated keys:
+
+- [`rgcsekaraa/brows3`](https://github.com/rgcsekaraa/brows3) — explicit S3-compatible
+  support (path-style custom endpoints), the closest fit.
+- [`awslabs/aws-js-s3-explorer`](https://github.com/awslabs/aws-js-s3-explorer)
+  (`v2-alpha`) — single `index.html` fallback.
+
+Clone and open `index.html` (or use its GitHub Pages), then enter:
+
+- **Endpoint** — `https://<clientId>.<DOMAIN_SUFFIX>` (real Let's Encrypt cert, so
+  the browser trusts the TLS with no warning)
+- **Region** — `garage`
+- **Path-style** — **on** (Garage is path-style only)
+- **Access key / secret** — from the `credentials` event
+
+The explorer runs in your browser, so its requests to the S3 API are cross-origin
+and Garage blocks them until the bucket has a CORS rule. This is a one-time S3-API
+call (no deployment change):
+
+```bash
+cat > cors.json <<'EOF'
+{ "CORSRules": [ {
+  "AllowedOrigins": ["*"],
+  "AllowedMethods": ["GET","PUT","POST","DELETE","HEAD"],
+  "AllowedHeaders": ["*"],
+  "ExposeHeaders": ["ETag"]
+} ] }
+EOF
+
+aws --endpoint-url https://<clientId>.<DOMAIN_SUFFIX> --region garage \
+  s3api put-bucket-cors --bucket bucket --cors-configuration file://cors.json
+```
+
+> **Security (demo only).** `AllowedOrigins: ["*"]` lets *any* website your browser
+> visits make authenticated calls to this bucket, and the S3 keys live in the
+> browser tab. That is acceptable here because this is throwaway demo storage with
+> ephemeral data and disposable keys — **do not** reuse this CORS rule or expose
+> these keys for anything real. For a non-demo setup, pin `AllowedOrigins` to the
+> exact explorer URL and scope the key to a single bucket.
+
 ## Configure
 
 ```bash
