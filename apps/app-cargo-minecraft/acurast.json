@@ -35,8 +35,7 @@
         "CALLBACK_URL",
         "DOMAIN_SUFFIX_MAINNET",
         "NETWORK",
-        "SSH_PASSWORD",
-        "MC_SERVER_URL"
+        "SSH_PASSWORD"
       ],
       "processorWhitelist": []
     }

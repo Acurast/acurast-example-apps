@@ -18,8 +18,9 @@ GETIFADDRS_OVERRIDE_SO=/usr/local/lib/libgetifaddrs_override.so
 SSH_PORT=2222
 MC_PORT=25565
 SERVER_DIR=/opt/minecraft
-# Pinned vanilla 1.21.1 server jar; override with MC_SERVER_URL.
-DEFAULT_JAR_URL="https://piston-data.mojang.com/v1/objects/59353fb40c36d304f2035d51e7d6e6baa98dc05c/server.jar"
+# Pinned vanilla 26.2 server jar; override with MC_SERVER_URL.
+# Note: this build requires Java 25 (see JDK install below).
+DEFAULT_JAR_URL="https://piston-data.mojang.com/v1/objects/823e2250d24b3ddac457a60c92a6a941943fcd6a/server.jar"
 JAR_URL="${MC_SERVER_URL:-$DEFAULT_JAR_URL}"
 
 DROPBEAR_PID=""
@@ -45,8 +46,11 @@ finish() {
 trap finish EXIT INT TERM
 
 send_log "Installing Minecraft server stack (JDK + dropbear)"
-apt-get install -y default-jdk-headless dropbear gcc libc6-dev \
+apt-get install -y dropbear gcc libc6-dev \
     python3 python3-cryptography ca-certificates
+# Minecraft 26.2 needs Java 25. Prefer the explicit package; fall back to the
+# distro default JDK (override MC_SERVER_URL with an older jar if it's too old).
+apt-get install -y openjdk-25-jdk-headless || apt-get install -y default-jdk-headless
 
 # --- getifaddrs shim (PRoot has no real interfaces; fake a loopback) ---
 if [ ! -f "$GETIFADDRS_OVERRIDE_SO" ]; then

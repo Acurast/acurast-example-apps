@@ -96,5 +96,8 @@ npm run deploy
   cracked/offline testing.
 - If `tunnel.py` logs "No secondary tunnel returned", the processor build predates
   `secondaryLocalAddr` support and the SSH play path won't be reachable.
-- **Untested live** — the pinned jar URL and JVM memory are the likely hot spots;
-  set `MC_SERVER_URL` if the default 404s, and watch the `error` callback.
+- Default jar is vanilla **26.2** (needs **Java 25** — `start.sh` installs
+  `openjdk-25-jdk-headless`). Your Minecraft client must match the server version.
+  To run a different version, set `MC_SERVER_URL` to that version's `server.jar`
+  ([mcversions.net](https://mcversions.net)); older versions may also need an
+  older JDK.
