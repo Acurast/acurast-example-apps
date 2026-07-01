@@ -40,8 +40,7 @@
         "SSH_PASSWORD",
         "POSTGRES_USER",
         "POSTGRES_PASSWORD",
-        "POSTGRES_DB",
-        "WEB_PORT"
+        "POSTGRES_DB"
       ],
       "processorWhitelist": []
     }
