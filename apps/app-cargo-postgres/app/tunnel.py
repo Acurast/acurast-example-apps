@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Acurast reverse-tunnel client for the LLM deployment.
+"""Acurast reverse-tunnel client for the Postgres deployment.
 
 Generates a P-256 identity key, then asks the Acurast Processor (via the JSON-RPC
-bridge on the abstract Unix socket named in $BRIDGE_SOCKET) to open a
-reverse tunnel forwarding inbound traffic to the local llama-server instance.
+bridge on the abstract Unix socket named in $BRIDGE_SOCKET) to open a reverse
+tunnel with TWO connections: the PRIMARY (Let's Encrypt cert) forwards to the
+local web SQL console so it opens in any browser with a valid cert; the
+SECONDARY (self-signed) forwards to a local dropbear SSH instance for shell /
+native `psql` access (via an SSH local-forward of port 5432).
 """
 
 import base64
@@ -11,6 +14,7 @@ import json
 import os
 import signal
 import socket
+import subprocess
 import sys
 import time
 import traceback
@@ -49,11 +53,14 @@ TUNNEL_RELAYS = NETWORKS[NETWORK]["relays"]
 # When unset, falls back to the network default (acu.run / canary.acu.run).
 _DOMAIN_ENV = f"DOMAIN_SUFFIX_{NETWORK.upper()}"
 DOMAIN_SUFFIX = os.environ.get(_DOMAIN_ENV) or NETWORKS[NETWORK]["domainSuffix"]
-LLAMA_PORT = 8080
-LOCAL_ADDR = f"127.0.0.1:{LLAMA_PORT}"
+# Primary (ACME) tunnel serves the web SQL console; secondary (self-signed) maps
+# to SSH for shell / native psql access (ssh -L 5432).
+WEB_PORT = int(os.environ.get("WEB_PORT", "8080"))
+SSH_PORT = int(os.environ.get("SSH_PORT", "2222"))
+PG_PORT = int(os.environ.get("PGPORT", "5432"))
+LOCAL_ADDR = f"127.0.0.1:{WEB_PORT}"
+SECONDARY_LOCAL_ADDR = f"127.0.0.1:{SSH_PORT}"
 STATUS_POLL_INTERVAL_SEC = 30
-# Issue Staging Let's Encrypt certificates. Set to True for staging deployments
-STAGING_CERTIFICATE = False
 
 CALLBACK_URL = os.environ.get("CALLBACK_URL")
 BRIDGE_SOCKET = os.environ.get("BRIDGE_SOCKET")
@@ -69,7 +76,7 @@ def post_callback(payload):
         req = urlrequest.Request(
             CALLBACK_URL,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json", "User-Agent": "acurast-tunnel/0.1.3"},
+            headers={"Content-Type": "application/json"},
             method="POST",
         )
         urlrequest.urlopen(req, timeout=10).close()
@@ -82,8 +89,15 @@ def report_log(message):
     post_callback({"event": "log", "message": message})
 
 
-def report_started(url, port):
-    post_callback({"event": "started", "url": url, "port": port})
+def report_started(url, ssh_url, ssh_port, connect, forward):
+    post_callback({
+        "event": "started",
+        "url": url,
+        "sshUrl": ssh_url,
+        "sshPort": ssh_port,
+        "connect": connect,
+        "forward": forward,
+    })
 
 
 def report_error(message):
@@ -147,18 +161,51 @@ def main():
     spec = {
         "serverAddrs": TUNNEL_RELAYS,
         "domainSuffix": DOMAIN_SUFFIX,
+        # Primary (ACME) connection forwards here — the web SQL console.
         "localAddr": LOCAL_ADDR,
+        # Secondary (self-signed) connection forwards here — the SSH server. The
+        # host opens the secondary connection automatically; we only choose its target.
+        "secondaryLocalAddr": SECONDARY_LOCAL_ADDR,
         "primaryKey": {"algorithm": "Secp256r1", "bytes": key_b64},
-        "acmeStaging": STAGING_CERTIFICATE,
+        "acmeStaging": False,
     }
 
-    report_log(f"Requesting reverse tunnel to {LOCAL_ADDR}")
+    report_log(f"Requesting reverse tunnel (web -> {LOCAL_ADDR}, ssh -> {SECONDARY_LOCAL_ADDR})")
     info = rpc_call("tunnel_start", [spec])
     url = info.get("url")
     client_id = info.get("clientId")
-    report_log(f"Tunnel started: url={url} clientId={client_id}")
-    report_started(url, LLAMA_PORT)
-    print(f"llama-server reachable via tunnel:\n  {url}")
+    web_url = url or f"https://{client_id}.{DOMAIN_SUFFIX}:8443"
+    ssh_url = info.get("secondaryUrl")
+    ssh_client_id = info.get("secondaryClientId")
+    report_log(f"Tunnel started: web url={web_url} clientId={client_id}")
+
+    if not ssh_client_id:
+        report_error(
+            "No secondary tunnel returned — the processor build may predate "
+            "secondaryLocalAddr support; SSH / native psql access will not be reachable."
+        )
+        connect_cmd = None
+        forward_cmd = None
+    else:
+        report_log(f"SSH tunnel ready: url={ssh_url} secondaryClientId={ssh_client_id}")
+        # SSH rides the self-signed secondary connection; openssl s_client does not
+        # verify the cert. `connect_cmd` opens an interactive shell (use this to
+        # debug a failed deployment); `forward_cmd` adds a local-forward of 5432 so
+        # a native psql connects to 127.0.0.1. Note: NO -N on the shell command —
+        # -N suppresses the shell, so it only forwards ports and looks like it hangs.
+        proxy = (
+            f"-o ProxyCommand='openssl s_client -quiet "
+            f"-servername {ssh_client_id}.{DOMAIN_SUFFIX} "
+            f"-connect {ssh_client_id}.{DOMAIN_SUFFIX}:443'"
+        )
+        connect_cmd = f"ssh {proxy} root@{ssh_client_id}"
+        forward_cmd = f"ssh -N -L {PG_PORT}:127.0.0.1:{PG_PORT} {proxy} root@{ssh_client_id}"
+
+    report_started(web_url, ssh_url, SSH_PORT, connect_cmd, forward_cmd)
+    print(f"Open the web SQL console:\n  {web_url}")
+    if connect_cmd:
+        print(f"SSH shell (debug):\n  {connect_cmd}")
+        print(f"Native psql via SSH local-forward:\n  {forward_cmd}")
 
     stop_called = {"value": False}
 

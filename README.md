@@ -20,6 +20,7 @@ An overview of the examples available in this repository.
 | [tunnel](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-tunnel)               | Expose a local service to the public internet                 | TS, Cargo, CLI, P2P                |
 | [wasm](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-wasm)                   | Run wasm                                                      | TS, CLI, WASM                      |
 | [webserver](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-webserver)         | Run a webserver                                               | TS, CLI, Webserver                 |
+| [webserver-static](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-webserver-static) | Serve static files with an Express webserver            | TS, CLI, Webserver                 |
 
 ### Programming Languages
 
@@ -40,6 +41,23 @@ starting points for your own workloads in the language of your choice.
 | [cargo-ruby](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-ruby)     | Ruby     |
 | [cargo-rust](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-rust)     | Rust     |
 | [cargo-zig](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-zig)       | Zig      |
+
+### Applications
+
+Real-world services deployed with the Shell (Cargo) runtime and exposed to the
+public internet over the **Acurast Tunnel** — most over the tunnel's two
+connections at once: a public HTTPS service on the primary (Let's Encrypt)
+connection and an SSH shell on the secondary (self-signed) connection.
+
+| Project                                                                                               | Description                                                                    | Features                          |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | --------------------------------- |
+| [cargo-ssh](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-ssh)             | Open an interactive SSH session into a processor over a reverse tunnel         | Shell, Cargo, SSH, Tunnel         |
+| [cargo-garage](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-garage)       | Run a Garage S3-compatible object store, exposed over the Tunnel               | Shell, Cargo, Tunnel, SSH, S3     |
+| [cargo-hermes](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-hermes)       | Run the Hermes autonomous AI agent (WebUI + SSH) over the Tunnel               | Shell, Cargo, Tunnel, SSH, AI     |
+| [cargo-minecraft](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-minecraft) | Run a Minecraft Java server, exposed over the Tunnel                           | Shell, Cargo, Tunnel, SSH         |
+| [cargo-openclaw](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-openclaw)   | Run the OpenClaw AI assistant (Control UI + SSH) over the Tunnel               | Shell, Cargo, Tunnel, SSH, AI     |
+| [cargo-postgres](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-postgres)   | Run PostgreSQL with a browser SQL console + SSH, over the Tunnel               | Shell, Cargo, Tunnel, SSH, Postgres |
+| [cargo-wordpress](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-wordpress) | Run a full WordPress site (Apache + PHP + MariaDB), exposed over the Tunnel     | Shell, Cargo, Tunnel, SSH, PHP    |
 
 ### Benchmarks
 

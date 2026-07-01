@@ -1,7 +1,7 @@
 {
   "projects": {
-    "llm-tunnel": {
-      "projectName": "llm-tunnel",
+    "cargo-postgres": {
+      "projectName": "cargo-postgres",
       "fileUrl": "app",
       "entrypoint": "start.sh",
       "runtime": "Shell",
@@ -11,6 +11,9 @@
       },
       "network": "mainnet",
       "onlyAttestedDevices": true,
+      "startAt": {
+        "msFromNow": 180000
+      },
       "assignmentStrategy": {
         "type": "Single"
       },
@@ -30,11 +33,17 @@
         "android": "1.26.0"
       },
       "minProcessorReputation": 0,
-      "maxCostPerExecution": 70000000000,
+      "maxCostPerExecution": 201096720000,
       "includeEnvironmentVariables": [
         "CALLBACK_URL",
-        "NETWORK"
-      ]
+        "NETWORK",
+        "SSH_PASSWORD",
+        "POSTGRES_USER",
+        "POSTGRES_PASSWORD",
+        "POSTGRES_DB",
+        "WEB_PORT"
+      ],
+      "processorWhitelist": []
     }
   }
 }

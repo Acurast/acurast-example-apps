@@ -1,0 +1,13 @@
+{
+  "name": "app-cargo-garage",
+  "version": "0.0.1",
+  "description": "Acurast example: run a Garage S3 object store exposed over the Acurast Tunnel",
+  "scripts": {
+    "deploy": "acurast deploy"
+  },
+  "author": "Andreas Gassmann <andreas@acurast.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@acurast/cli": "^0.9.0"
+  }
+}

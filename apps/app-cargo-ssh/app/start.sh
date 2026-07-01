@@ -72,7 +72,7 @@ start_tunnel || exit 1
 if [ -n "$TUNNEL_HOST" ] && [ -n "$TUNNEL_PORT" ]; then
     echo "=== Tunnel ready ==="
     echo "Connect: ssh root@${TUNNEL_HOST} -p ${TUNNEL_PORT}"
-    report_started "$TUNNEL_HOST" "$TUNNEL_PORT"
+    send_callback "{\"event\":\"started\",\"host\":\"${TUNNEL_HOST}\",\"port\":${TUNNEL_PORT}}"
 else
     echo "ERROR: Could not retrieve tunnel address"
     report_error "Could not retrieve tunnel address"

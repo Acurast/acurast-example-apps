@@ -1,7 +1,7 @@
 {
   "projects": {
-    "llm-tunnel": {
-      "projectName": "llm-tunnel",
+    "cargo-minecraft": {
+      "projectName": "cargo-minecraft",
       "fileUrl": "app",
       "entrypoint": "start.sh",
       "runtime": "Shell",
@@ -16,7 +16,7 @@
       },
       "execution": {
         "type": "onetime",
-        "maxExecutionTimeInMs": 7200000
+        "maxExecutionTimeInMs": 14400000
       },
       "maxAllowedStartDelayInMs": 10000,
       "usageLimit": {
@@ -30,11 +30,13 @@
         "android": "1.26.0"
       },
       "minProcessorReputation": 0,
-      "maxCostPerExecution": 70000000000,
+      "maxCostPerExecution": 201096720000,
       "includeEnvironmentVariables": [
         "CALLBACK_URL",
-        "NETWORK"
-      ]
+        "NETWORK",
+        "SSH_PASSWORD"
+      ],
+      "processorWhitelist": []
     }
   }
 }

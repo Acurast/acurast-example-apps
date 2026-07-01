@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Acurast reverse-tunnel client for the LLM deployment.
+"""Acurast reverse-tunnel client for the Cargo OpenClaw deployment.
 
 Generates a P-256 identity key, then asks the Acurast Processor (via the JSON-RPC
-bridge on the abstract Unix socket named in $BRIDGE_SOCKET) to open a
-reverse tunnel forwarding inbound traffic to the local llama-server instance.
+bridge on the abstract Unix socket named in $BRIDGE_SOCKET) to open a reverse
+tunnel with TWO connections: the PRIMARY (Let's Encrypt cert) forwards to the
+local OpenClaw Control UI (plain HTTP, so the tunnel URL opens directly in a
+browser); the SECONDARY (self-signed) forwards to a local dropbear SSH instance
+for the `openclaw` CLI and debugging.
 """
 
 import base64
@@ -11,6 +14,7 @@ import json
 import os
 import signal
 import socket
+import subprocess
 import sys
 import time
 import traceback
@@ -49,11 +53,15 @@ TUNNEL_RELAYS = NETWORKS[NETWORK]["relays"]
 # When unset, falls back to the network default (acu.run / canary.acu.run).
 _DOMAIN_ENV = f"DOMAIN_SUFFIX_{NETWORK.upper()}"
 DOMAIN_SUFFIX = os.environ.get(_DOMAIN_ENV) or NETWORKS[NETWORK]["domainSuffix"]
-LLAMA_PORT = 8080
-LOCAL_ADDR = f"127.0.0.1:{LLAMA_PORT}"
+# Primary (ACME) tunnel serves the OpenClaw Control UI; secondary (self-signed) maps to SSH.
+UI_PORT = int(os.environ.get("OPENCLAW_GATEWAY_PORT", "18789"))
+SSH_PORT = int(os.environ.get("SSH_PORT", "2222"))
+LOCAL_ADDR = f"127.0.0.1:{UI_PORT}"
+SECONDARY_LOCAL_ADDR = f"127.0.0.1:{SSH_PORT}"
 STATUS_POLL_INTERVAL_SEC = 30
-# Issue Staging Let's Encrypt certificates. Set to True for staging deployments
-STAGING_CERTIFICATE = False
+# start.sh polls this file for the public Control UI origin so it can whitelist it
+# in gateway.controlUi.allowedOrigins (the gateway rejects non-whitelisted origins).
+ORIGIN_FILE = os.environ.get("PRIMARY_ORIGIN_FILE")
 
 CALLBACK_URL = os.environ.get("CALLBACK_URL")
 BRIDGE_SOCKET = os.environ.get("BRIDGE_SOCKET")
@@ -69,7 +77,7 @@ def post_callback(payload):
         req = urlrequest.Request(
             CALLBACK_URL,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json", "User-Agent": "acurast-tunnel/0.1.3"},
+            headers={"Content-Type": "application/json"},
             method="POST",
         )
         urlrequest.urlopen(req, timeout=10).close()
@@ -82,8 +90,15 @@ def report_log(message):
     post_callback({"event": "log", "message": message})
 
 
-def report_started(url, port):
-    post_callback({"event": "started", "url": url, "port": port})
+def report_started(url, ssh_url, ssh_port, webui_port, connect):
+    post_callback({
+        "event": "started",
+        "url": url,
+        "sshUrl": ssh_url,
+        "sshPort": ssh_port,
+        "webuiPort": webui_port,
+        "connect": connect,
+    })
 
 
 def report_error(message):
@@ -147,18 +162,54 @@ def main():
     spec = {
         "serverAddrs": TUNNEL_RELAYS,
         "domainSuffix": DOMAIN_SUFFIX,
+        # Primary (ACME) connection forwards here — the OpenClaw Control UI (HTTP).
         "localAddr": LOCAL_ADDR,
+        # Secondary (self-signed) connection forwards here — the SSH server. The
+        # host opens the secondary connection automatically; we only choose its target.
+        "secondaryLocalAddr": SECONDARY_LOCAL_ADDR,
         "primaryKey": {"algorithm": "Secp256r1", "bytes": key_b64},
-        "acmeStaging": STAGING_CERTIFICATE,
+        "acmeStaging": False,
     }
 
-    report_log(f"Requesting reverse tunnel to {LOCAL_ADDR}")
+    report_log(f"Requesting reverse tunnel (ui -> {LOCAL_ADDR}, ssh -> {SECONDARY_LOCAL_ADDR})")
     info = rpc_call("tunnel_start", [spec])
     url = info.get("url")
     client_id = info.get("clientId")
-    report_log(f"Tunnel started: url={url} clientId={client_id}")
-    report_started(url, LLAMA_PORT)
-    print(f"llama-server reachable via tunnel:\n  {url}")
+    ssh_url = info.get("secondaryUrl")
+    ssh_client_id = info.get("secondaryClientId")
+    report_log(f"Tunnel started: ui url={url} clientId={client_id}")
+
+    # Publish the public Control UI origin so start.sh can whitelist it before
+    # starting the gateway (origin = https://<clientId>.<domainSuffix>).
+    if ORIGIN_FILE and client_id:
+        origin = f"https://{client_id}.{DOMAIN_SUFFIX}"
+        try:
+            with open(ORIGIN_FILE, "w") as f:
+                f.write(origin)
+            report_log(f"Wrote Control UI origin {origin} to {ORIGIN_FILE}")
+        except OSError as e:
+            report_error(f"failed to write origin file {ORIGIN_FILE}: {e}")
+
+    if not ssh_client_id:
+        report_error(
+            "No secondary tunnel returned — the processor build may predate "
+            "secondaryLocalAddr support; SSH (the `openclaw` CLI + debug path) will not be reachable."
+        )
+        connect_cmd = None
+    else:
+        report_log(f"SSH tunnel ready: url={ssh_url} secondaryClientId={ssh_client_id}")
+        # SSH rides the self-signed secondary connection; openssl s_client does not
+        # verify the cert. Use this for the `openclaw` CLI or to debug a failed start.
+        connect_cmd = (
+            f"ssh -o ProxyCommand='openssl s_client -quiet "
+            f"-servername {ssh_client_id}.{DOMAIN_SUFFIX} "
+            f"-connect {ssh_client_id}.{DOMAIN_SUFFIX}:443' root@{ssh_client_id}"
+        )
+
+    report_started(url, ssh_url, SSH_PORT, UI_PORT, connect_cmd)
+    print(f"OpenClaw Control UI (open in browser):\n  {url}")
+    if connect_cmd:
+        print(f"SSH shell — `openclaw` CLI / debug (secondary):\n  {connect_cmd}")
 
     stop_called = {"value": False}
 
