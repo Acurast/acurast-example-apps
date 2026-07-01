@@ -37,7 +37,6 @@
       "includeEnvironmentVariables": [
         "CALLBACK_URL",
         "SSH_PASSWORD",
-        "DOMAIN_SUFFIX_MAINNET",
         "NETWORK",
         "WORDPRESS_DB_NAME",
         "WORDPRESS_DB_USER",

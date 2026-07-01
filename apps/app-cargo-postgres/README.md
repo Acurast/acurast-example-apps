@@ -110,7 +110,7 @@ cp .env.example .env
 | `ACURAST_MNEMONIC` | yes | Deployer seed phrase. **Do not commit.** |
 | `SSH_PASSWORD` | no (default `password`) | Root password for the dropbear SSH session. **Set a strong value.** |
 | `NETWORK` | yes | Target network: `canary` or `mainnet`. Selects the tunnel relays at runtime. Must match the `network` field in `acurast.json`. |
-| `DOMAIN_SUFFIX_CANARY` / `DOMAIN_SUFFIX_MAINNET` | active one | Your tunnel DNS suffix (wildcard `*` + `_acu` TXT records published), one per network. Set only the one matching `NETWORK`. |
+| `DOMAIN_SUFFIX_CANARY` / `DOMAIN_SUFFIX_MAINNET` | no | **Optional** custom domain suffix, one per network. When unset, falls back to the network default (`acu.run` / `canary.acu.run`). If set, the matching var must also be listed in `acurast.json`'s `includeEnvironmentVariables`. |
 | `CALLBACK_URL` | no | Webhook for `log`/`started`/`error` events (carries the web URL and SSH connect command). |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | no (defaults) | Postgres superuser, password (for TCP/scram), and database created on first start. **Set strong values.** |
 

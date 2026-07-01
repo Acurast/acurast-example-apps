@@ -64,7 +64,7 @@ cp .env.example .env
 | --- | --- | --- |
 | `ACURAST_MNEMONIC` | yes | Deployer seed phrase. **Do not commit.** |
 | `NETWORK` | yes | Target network: `canary` or `mainnet`. Selects the tunnel relays at runtime. Must match the `network` field in `acurast.json`. |
-| `DOMAIN_SUFFIX_CANARY` / `DOMAIN_SUFFIX_MAINNET` | active one | Your tunnel DNS suffix (wildcard `*` + `_acu` TXT records published), one per network. Set only the one matching `NETWORK`. |
+| `DOMAIN_SUFFIX_CANARY` / `DOMAIN_SUFFIX_MAINNET` | no | **Optional** custom domain suffix, one per network. When unset, falls back to the network default (`acu.run` / `canary.acu.run`). If set, the matching var must also be listed in `acurast.json`'s `includeEnvironmentVariables`. |
 | `SSH_PASSWORD` | no (default `password`) | Root password for the dropbear SSH session. **Set a strong value.** |
 | `CALLBACK_URL` | no | Webhook for `log`/`started`/`error` events (carries the web URL and SSH connect command). |
 | `WORDPRESS_DB_NAME` / `_USER` / `_PASSWORD` | no (defaults) | DB created on first start. **Set strong values.** |

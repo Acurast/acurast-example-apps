@@ -36,7 +36,6 @@
       "maxCostPerExecution": 201096720000,
       "includeEnvironmentVariables": [
         "CALLBACK_URL",
-        "DOMAIN_SUFFIX_MAINNET",
         "NETWORK",
         "SSH_PASSWORD",
         "OPENROUTER_API_KEY",

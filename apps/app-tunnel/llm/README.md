@@ -48,10 +48,10 @@ Acurast processor (Shell runtime / proot)
 
 | Constant | Purpose | Example |
 | --- | --- | --- |
-| `TUNNEL_RELAYS` | Tunnel relay endpoints to connect to. | `["relay-2.canary.acurast.com:4433", …]` |
-| `DOMAIN_SUFFIX` | **Replace with your own domain suffix.** The DNS suffix you control where the wildcard `*` and `_acu` TXT records have been published (see the Tunnel Quick Start). | `"tunnel.example.com"` |
+| `NETWORKS` | Per-network tunnel relay endpoints, keyed by `canary` / `mainnet`. The set matching the `NETWORK` env var is used at runtime. | `{ "canary": {...}, "mainnet": {...} }` |
 | `LLAMA_PORT` | Local port `llama-server` listens on and the tunnel forwards to. Must be >= 1024 (privileged ports can't be bound inside the proot sandbox). | `8080` |
 | `LOCAL_ADDR` | Derived from `LLAMA_PORT`, i.e. `127.0.0.1:<LLAMA_PORT>`. | `"127.0.0.1:8080"` |
+| `STAGING_CERTIFICATE` | Issue staging Let's Encrypt certificates. Keep `False` for production deployments. | `False` |
 | `STATUS_POLL_INTERVAL_SEC` | How often the script polls `tunnel_status` after start (just for log visibility). | `30` |
 
 Additional runtime values (`BRIDGE_SOCKET`, `CALLBACK_URL`) are read from the
@@ -64,6 +64,8 @@ Copy `.env.example` to `.env` and fill in your own values. **Never commit `.env`
 | Variable           | Description                                                                                          |
 | ------------------ | ---------------------------------------------------------------------------------------------------- |
 | `ACURAST_MNEMONIC` | Your Acurast deployer wallet mnemonic.                                                               |
+| `NETWORK`          | Target network: `canary` or `mainnet`. Selects the tunnel relays at runtime. **Must match the `network` field in `acurast.json`.** |
+| `DOMAIN_SUFFIX_CANARY` / `DOMAIN_SUFFIX_MAINNET` | **Optional** custom domain suffix, one per network. When unset, falls back to the network default (`acu.run` / `canary.acu.run`). If set, the matching var must also be listed in `acurast.json`'s `includeEnvironmentVariables`. |
 | `CALLBACK_URL`     | An HTTP endpoint that receives lifecycle events (including the tunnel URL). Use your own receiver.    |
 
 > The callback exists because the tunnel subdomain is derived from an ephemeral
@@ -81,10 +83,10 @@ Copy `.env.example` to `.env` and fill in your own values. **Never commit `.env`
 | `fileUrl`              | `"app"`                            |
 | `entrypoint`           | `"start.sh"`                       |
 | `requiredModules`      | `["Shell"]`                        |
-| `network`              | `"canary"`                         |
+| `network`              | `"mainnet"`                        |
 | `onlyAttestedDevices`  | `true`                             |
 | execution             | one-time, 2h max                   |
-| `minProcessorVersions` | `{ "android": 122 }`               |
+| `minProcessorVersions` | `{ "android": "1.26.0" }`          |
 
 `acurast deploy` uploads the `app/` directory to IPFS and submits the
 deployment — there is no TypeScript bundling step for Shell-runtime apps.
@@ -156,7 +158,7 @@ Acurast-hosted model over the tunnel.
 - **Loopback shim.** `getifaddrs_override.c` is `LD_PRELOAD`-ed so `llama-server`
   binds correctly inside the proot environment.
 
-- **Processor version.** `minProcessorVersions` is pinned to `{ android: 122 }` to
+- **Processor version.** `minProcessorVersions` is pinned to `{ android: "1.26.0" }` to
   match the tunnel example family. In our own testing the deployment also matched
   on an open pool without that gate appearing to be the limiting factor, so if you
   run into matching issues it is the first thing to revisit.

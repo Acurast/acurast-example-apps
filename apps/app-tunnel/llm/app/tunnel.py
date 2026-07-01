@@ -19,18 +19,41 @@ from urllib import request as urlrequest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
-TUNNEL_RELAYS = [
-    "relay-2.canary.acurast.com:4433",
-    "canary-relay.5elementsnodes.com:4433",
-    "acurast-canary-relay.dishich.com:4433",
-    "relay.el9-acurast.com:4433",
-    "canary-relay.vincent-acurast.xyz:4433",
-    "canary-relay.acurast.online:4433",
-]
-DOMAIN_SUFFIX = "tunnel.example.com"
+# Network-specific values. Pick the set matching $NETWORK (see .env). Keep the
+# `network` field in acurast.json in sync with this — the CLI does not read $NETWORK.
+NETWORKS = {
+    "mainnet": {
+        "relays": [
+            "relay-1.mainnet.acurast.com:4433",
+        ],
+        "domainSuffix": "acu.run",
+    },
+    "canary": {
+        "relays": [
+            "relay-2.canary.acurast.com:4433",
+            "canary-relay.5elementsnodes.com:4433",
+            "relay.el9-acurast.com:4433",
+            "canary-relay.vincent-acurast.xyz:4433",
+            "canary-relay.acurast.online:4433",
+        ],
+        "domainSuffix": "canary.acu.run",
+    },
+}
+NETWORK = os.environ.get("NETWORK")
+if NETWORK not in NETWORKS:
+    print(f"NETWORK env var must be one of {list(NETWORKS)}; got {NETWORK!r}.", file=sys.stderr)
+    sys.exit(1)
+TUNNEL_RELAYS = NETWORKS[NETWORK]["relays"]
+# DNS suffix you control (wildcard `*` + `_acu` TXT records published). Optional —
+# override per network via DOMAIN_SUFFIX_CANARY / DOMAIN_SUFFIX_MAINNET (see .env).
+# When unset, falls back to the network default (acu.run / canary.acu.run).
+_DOMAIN_ENV = f"DOMAIN_SUFFIX_{NETWORK.upper()}"
+DOMAIN_SUFFIX = os.environ.get(_DOMAIN_ENV) or NETWORKS[NETWORK]["domainSuffix"]
 LLAMA_PORT = 8080
 LOCAL_ADDR = f"127.0.0.1:{LLAMA_PORT}"
 STATUS_POLL_INTERVAL_SEC = 30
+# Issue Staging Let's Encrypt certificates. Set to True for staging deployments
+STAGING_CERTIFICATE = False
 
 CALLBACK_URL = os.environ.get("CALLBACK_URL")
 BRIDGE_SOCKET = os.environ.get("BRIDGE_SOCKET")
@@ -46,7 +69,7 @@ def post_callback(payload):
         req = urlrequest.Request(
             CALLBACK_URL,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "User-Agent": "acurast-tunnel/0.1.3"},
             method="POST",
         )
         urlrequest.urlopen(req, timeout=10).close()
@@ -126,7 +149,7 @@ def main():
         "domainSuffix": DOMAIN_SUFFIX,
         "localAddr": LOCAL_ADDR,
         "primaryKey": {"algorithm": "Secp256r1", "bytes": key_b64},
-        "acmeStaging": False,
+        "acmeStaging": STAGING_CERTIFICATE,
     }
 
     report_log(f"Requesting reverse tunnel to {LOCAL_ADDR}")

@@ -30,16 +30,17 @@ NETWORKS = {
         "relays": [
             "relay-1.mainnet.acurast.com:4433",
         ],
+        "domainSuffix": "acu.run",
     },
     "canary": {
         "relays": [
             "relay-2.canary.acurast.com:4433",
             "canary-relay.5elementsnodes.com:4433",
-            "acurast-canary-relay.dishich.com:4433",
             "relay.el9-acurast.com:4433",
             "canary-relay.vincent-acurast.xyz:4433",
             "canary-relay.acurast.online:4433",
         ],
+        "domainSuffix": "canary.acu.run",
     },
 }
 NETWORK = os.environ.get("NETWORK")
@@ -47,14 +48,11 @@ if NETWORK not in NETWORKS:
     print(f"NETWORK env var must be one of {list(NETWORKS)}; got {NETWORK!r}.", file=sys.stderr)
     sys.exit(1)
 TUNNEL_RELAYS = NETWORKS[NETWORK]["relays"]
-# DNS suffix you control (wildcard `*` + `_acu` TXT records published). One name
-# per network — DOMAIN_SUFFIX_CANARY / DOMAIN_SUFFIX_MAINNET (see .env) — but only
-# the one matching $NETWORK needs to be set. Required.
+# DNS suffix you control (wildcard `*` + `_acu` TXT records published). Optional —
+# override per network via DOMAIN_SUFFIX_CANARY / DOMAIN_SUFFIX_MAINNET (see .env).
+# When unset, falls back to the network default (acu.run / canary.acu.run).
 _DOMAIN_ENV = f"DOMAIN_SUFFIX_{NETWORK.upper()}"
-DOMAIN_SUFFIX = os.environ.get(_DOMAIN_ENV)
-if not DOMAIN_SUFFIX:
-    print(f"{_DOMAIN_ENV} env var not set; cannot start tunnel without a domain suffix.", file=sys.stderr)
-    sys.exit(1)
+DOMAIN_SUFFIX = os.environ.get(_DOMAIN_ENV) or NETWORKS[NETWORK]["domainSuffix"]
 # Primary (ACME) tunnel serves the OpenClaw Control UI; secondary (self-signed) maps to SSH.
 UI_PORT = int(os.environ.get("OPENCLAW_GATEWAY_PORT", "18789"))
 SSH_PORT = int(os.environ.get("SSH_PORT", "2222"))
