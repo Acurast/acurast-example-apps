@@ -1,5 +1,7 @@
 # Acurast Example App: Cargo SSH
 
+> 📖 **Docs / full walkthrough:** [Expose a Service to the Internet on Acurast](https://docs.acurast.com/developers/examples/tunnel)
+
 This example shows how to open an interactive SSH session into an Acurast processor using the **Shell** runtime and a custom container image (Cargo deployment).
 
 The deployment starts a [Dropbear](https://github.com/mkj/dropbear) SSH server inside the Ubuntu rootfs and exposes it via a reverse tunnel. The tunnel provider is selected via an environment variable, so the same deployment app works with ngrok, bore, or pinggy.

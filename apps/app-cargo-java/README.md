@@ -1,5 +1,7 @@
 # Acurast Example App: Java (cargo / Shell runtime)
 
+> 📖 **Docs / full walkthrough:** [Run Any Language on Acurast (Java)](https://docs.acurast.com/developers/examples/languages#java)
+
 Runs a minimal **Java** program in the Acurast **Shell** runtime (a Cargo
 deployment): an Ubuntu `proot-distro` rootfs where a JDK is installed at
 startup, then the program is compiled and run and POSTs a small JSON payload to

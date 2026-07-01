@@ -1,5 +1,7 @@
 # Acurast Example App: C# (cargo / Shell runtime)
 
+> 📖 **Docs / full walkthrough:** [Run Any Language on Acurast (C#)](https://docs.acurast.com/developers/examples/languages#csharp)
+
 Runs a minimal **C#** program in the Acurast **Shell** runtime (a Cargo
 deployment): an Ubuntu `proot-distro` rootfs where the Mono C# compiler and
 runtime are installed at startup, then the program is compiled and run and

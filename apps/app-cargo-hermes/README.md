@@ -1,5 +1,7 @@
 # Acurast Example App: Hermes (Cargo, WebUI + SSH)
 
+> 📖 **Docs / full walkthrough:** [Run the Hermes AI Agent on Acurast](https://docs.acurast.com/developers/examples/hermes)
+
 Runs [Hermes](https://hermes-agent.org) — an open-source autonomous AI agent by
 Nous Research — on an Acurast processor, exposed over the **Acurast Tunnel** two
 ways at once:

@@ -1,5 +1,7 @@
 # Acurast Example App: Garage S3 (Cargo)
 
+> 📖 **Docs / full walkthrough:** [Run S3-Compatible Storage on Acurast](https://docs.acurast.com/developers/examples/garage)
+
 Runs a single-node [Garage](https://garagehq.deuxfleurs.fr) S3-compatible object
 store inside an Acurast Cargo deployment and exposes it over the Acurast Tunnel's
 **two connections**:

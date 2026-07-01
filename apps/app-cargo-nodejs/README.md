@@ -1,5 +1,7 @@
 # Acurast Example App: Node.js (cargo / Shell runtime)
 
+> 📖 **Docs / full walkthrough:** [Run Any Language on Acurast (Node.js)](https://docs.acurast.com/developers/examples/languages#nodejs)
+
 Runs a minimal **Node.js** program in the Acurast **Shell** runtime (a Cargo
 deployment): an Ubuntu `proot-distro` rootfs where Node.js is installed at
 startup, then the program runs and POSTs a small JSON payload to your

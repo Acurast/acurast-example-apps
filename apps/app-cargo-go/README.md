@@ -1,5 +1,7 @@
 # Acurast Example App: Go (cargo / Shell runtime)
 
+> 📖 **Docs / full walkthrough:** [Run Any Language on Acurast (Go)](https://docs.acurast.com/developers/examples/languages#go)
+
 Runs a minimal **Go** program in the Acurast **Shell** runtime (a Cargo
 deployment): an Ubuntu `proot-distro` rootfs where the Go toolchain is
 installed at startup, then the program runs and POSTs a small JSON payload to

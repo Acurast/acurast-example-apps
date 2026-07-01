@@ -1,5 +1,7 @@
 # Acurast Example App: PHP (cargo / Shell runtime)
 
+> 📖 **Docs / full walkthrough:** [Run Any Language on Acurast (PHP)](https://docs.acurast.com/developers/examples/languages#php)
+
 Runs a minimal **PHP** program in the Acurast **Shell** runtime (a Cargo
 deployment): an Ubuntu `proot-distro` rootfs where the PHP CLI is installed at
 startup, then the program runs and POSTs a small JSON payload to your

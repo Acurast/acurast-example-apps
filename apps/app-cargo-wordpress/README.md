@@ -1,5 +1,7 @@
 # Acurast Example App: WordPress (Cargo)
 
+> 📖 **Docs / full walkthrough:** [Host a WordPress Site on Acurast](https://docs.acurast.com/developers/examples/wordpress)
+
 Runs a full [WordPress](https://wordpress.org) site (Apache + PHP + MariaDB)
 inside an Acurast Cargo deployment and exposes it over the Acurast Tunnel's
 **two connections**:

@@ -1,5 +1,7 @@
 # Acurast Example App: Rust (cargo / Shell runtime)
 
+> 📖 **Docs / full walkthrough:** [Run Any Language on Acurast (Rust)](https://docs.acurast.com/developers/examples/languages#rust)
+
 Runs a minimal **Rust** program in the Acurast **Shell** runtime (a Cargo
 deployment): an Ubuntu `proot-distro` rootfs where the Rust toolchain is
 installed at startup, then the program is built and run and POSTs a small JSON

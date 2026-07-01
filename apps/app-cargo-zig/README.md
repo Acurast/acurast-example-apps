@@ -1,5 +1,7 @@
 # Acurast Example App: Zig (cargo / Shell runtime)
 
+> 📖 **Docs / full walkthrough:** [Run Any Language on Acurast (Zig)](https://docs.acurast.com/developers/examples/languages#zig)
+
 Runs a minimal **Zig** program in the Acurast **Shell** runtime (a Cargo
 deployment): an Ubuntu `proot-distro` rootfs where the Zig toolchain is fetched
 at startup, then the program is compiled and run and POSTs a small JSON payload

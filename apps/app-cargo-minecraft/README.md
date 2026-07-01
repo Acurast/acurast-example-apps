@@ -1,5 +1,7 @@
 # Acurast Example App: Minecraft (Cargo)
 
+> 📖 **Docs / full walkthrough:** [Run a Minecraft Server on Acurast](https://docs.acurast.com/developers/examples/minecraft)
+
 Runs a [Minecraft](https://www.minecraft.net) Java server inside an Acurast
 Cargo deployment, exposed over the Acurast Tunnel's **two connections**:
 

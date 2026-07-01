@@ -1,5 +1,7 @@
 # Acurast Example App: OpenClaw (Cargo, Control UI + SSH)
 
+> 📖 **Docs / full walkthrough:** [Run the OpenClaw AI Assistant on Acurast](https://docs.acurast.com/developers/examples/openclaw)
+
 Runs [OpenClaw](https://openclaw.ai) — an open-source personal AI assistant
 ("the AI that actually does things") — on an Acurast processor, exposed over the
 **Acurast Tunnel** two ways at once:

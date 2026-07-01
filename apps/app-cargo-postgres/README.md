@@ -1,5 +1,7 @@
 # Acurast Example App: Postgres (Cargo)
 
+> 📖 **Docs / full walkthrough:** [Run PostgreSQL on Acurast](https://docs.acurast.com/developers/examples/postgres)
+
 Runs a [PostgreSQL](https://www.postgresql.org) database inside an Acurast Cargo
 deployment and exposes it over the Acurast Tunnel's **two connections**:
 

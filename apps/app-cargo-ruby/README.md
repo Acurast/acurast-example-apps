@@ -1,5 +1,7 @@
 # Acurast Example App: Ruby (cargo / Shell runtime)
 
+> 📖 **Docs / full walkthrough:** [Run Any Language on Acurast (Ruby)](https://docs.acurast.com/developers/examples/languages#ruby)
+
 Runs a minimal **Ruby** program in the Acurast **Shell** runtime (a Cargo
 deployment): an Ubuntu `proot-distro` rootfs where Ruby is installed at
 startup, then the program runs and POSTs a small JSON payload to your
