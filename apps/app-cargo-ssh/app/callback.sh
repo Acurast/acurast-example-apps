@@ -9,10 +9,6 @@ send_callback() {
         -d "$1"
 }
 
-report_started() {
-    send_callback "{\"event\":\"started\",\"host\":\"${1}\",\"port\":${2}}"
-}
-
 report_error() {
     send_callback "{\"event\":\"error\",\"message\":\"${1}\"}"
 }

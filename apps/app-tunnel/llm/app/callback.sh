@@ -9,11 +9,6 @@ send_callback() {
         -d "$1"
 }
 
-report_started() {
-    # $1 = full tunnel URL (clientId.domainSuffix:port), $2 = local llama-server port
-    send_callback "{\"event\":\"started\",\"url\":\"${1}\",\"port\":${2}}"
-}
-
 report_error() {
     send_callback "{\"event\":\"error\",\"message\":\"${1}\"}"
 }
