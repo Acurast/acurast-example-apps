@@ -57,8 +57,8 @@ SSH_PORT = 2222
 LOCAL_ADDR = f"127.0.0.1:{WEB_PORT}"
 SECONDARY_LOCAL_ADDR = f"127.0.0.1:{SSH_PORT}"
 STATUS_POLL_INTERVAL_SEC = 30
-# Issue Staging Let's Encrypt certificates. Set to False for production deployments
-STAGING_CERTIFICATE = True
+# Issue Staging Let's Encrypt certificates. Set to True for staging deployments
+STAGING_CERTIFICATE = False
 
 CALLBACK_URL = os.environ.get("CALLBACK_URL")
 BRIDGE_SOCKET = os.environ.get("BRIDGE_SOCKET")
