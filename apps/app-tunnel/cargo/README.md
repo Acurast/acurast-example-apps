@@ -21,7 +21,7 @@ local port each connection forwards to — `localAddr` for the web page, `second
 
 Once the tunnel is up:
 
-- Open the **web URL** (primary, `https://<clientId>.<DOMAIN_SUFFIX>`) in a browser.
+- Open the **web URL** (primary, `https://<clientId>.<DOMAIN_SUFFIX>`) in a browser. Unless a custom one is configured, `DOMAIN_SUFFIX` is `acu.run` for `mainnet` or `canary.acu.run` for `canary`.
 - SSH in over the **secondary** URL:
 
 ```bash
@@ -31,7 +31,7 @@ ssh -o ProxyCommand='openssl s_client -quiet \
   root@<secondaryClientId>
 ```
 
-Full tunnel docs: **[Tunnel Quick Start](https://docs.acurast.com/developers/getting-started/quickstart-tunnel)** + **[Cargo Tunnel API](https://docs.acurast.com/developers/build/cargo-runtime-environment#tunnel)**.
+Full tunnel docs: **[Tunnel Quick Start](https://docs.acurast.com/developers/getting-started/quickstart-tunnel)** and **[Cargo Tunnel API](https://docs.acurast.com/developers/build/cargo-runtime-environment#tunnel)**.
 
 ## Configure
 
@@ -58,7 +58,7 @@ Edit it to set:
 | --- | --- | --- |
 | `ACURAST_MNEMONIC` | yes | Your deployer's seed phrase. Used by the CLI to sign the on-chain deployment extrinsic. **Do not commit.** |
 | `NETWORK` | yes | Target network: `canary` or `mainnet`. Selects the tunnel relays at runtime (via the `NETWORKS` map). **Must match the `network` field in `acurast.json`** — the CLI does not read this variable. |
-| `DOMAIN_SUFFIX_CANARY` / `DOMAIN_SUFFIX_MAINNET` | active one | **Your own domain suffix**, one name per network. The DNS suffix you control where the wildcard `*` and `_acu` TXT records have been published (see Quick Start step 2). Set only the one matching `NETWORK`; that same var must be the one listed in `acurast.json`'s `includeEnvironmentVariables` (the CLI rejects empty forwarded vars, so the inactive one is not listed). |
+| `DOMAIN_SUFFIX_CANARY` / `DOMAIN_SUFFIX_MAINNET` | no | **Optional custom domain suffix**, one name per network. The DNS suffix you control where the wildcard `*` and `_acu` TXT records have been published (see Quick Start step 2). Set only the one matching `NETWORK`; if set, that same var must be the one listed in `acurast.json`'s `includeEnvironmentVariables` (the CLI rejects empty forwarded vars, so the inactive one is not listed). |
 | `SSH_PASSWORD` | no (defaults to `password`) | Root password for the dropbear SSH session. **Strongly recommend setting a strong value** — `password` is for testing only. |
 | `CALLBACK_URL` | no | Webhook URL that receives JSON events (`log`, `started`, `error`) during the deployment lifecycle. Useful for grabbing the web URL and SSH connect command. |
 
