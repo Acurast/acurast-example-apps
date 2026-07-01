@@ -34,7 +34,6 @@
       "includeEnvironmentVariables": [
         "CALLBACK_URL",
         "SSH_PASSWORD",
-        "DOMAIN_SUFFIX_MAINNET",
         "NETWORK"
       ]
     }
