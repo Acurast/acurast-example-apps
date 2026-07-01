@@ -171,9 +171,10 @@ fi
 # Write a minimal headless config: bind the gateway to loopback on $GATEWAY_PORT
 # (the tunnel's PRIMARY connection forwards here), force password auth on the
 # Control UI (see above), pin the model provider to OpenRouter, and set the
-# default agent model. apiKey/password use ${ENV} substitution so the secret is
-# resolved from the process env, not written into the file; the (non-secret)
-# model id is inlined.
+# default agent model. NOTE: OpenClaw does NOT env-substitute gateway.auth.password
+# or models.providers.*.apiKey, so the resolved secret VALUES are inlined here by
+# the shell (the heredoc is unquoted). Both values are URL-safe/alphanumeric, so
+# they are safe to embed in JSON. The config lives on the ephemeral rootfs only.
 send_log "Phase 2: writing OpenClaw config ($OPENCLAW_CONFIG), model=openrouter/$OPENCLAW_MODEL"
 mkdir -p "$OPENCLAW_CONFIG_DIR"
 if [ -z "$OPENROUTER_API_KEY" ]; then
@@ -211,7 +212,7 @@ cat > "$OPENCLAW_CONFIG" <<JSON
     "bind": "loopback",
     "auth": {
       "mode": "password",
-      "password": "\${OPENCLAW_GATEWAY_PASSWORD}"
+      "password": "${OPENCLAW_GATEWAY_PASSWORD}"
     },
     "controlUi": {
       "allowedOrigins": [ ${ALLOWED_ORIGINS} ]
@@ -219,7 +220,7 @@ cat > "$OPENCLAW_CONFIG" <<JSON
   },
   "models": {
     "providers": {
-      "openrouter": { "apiKey": "\${OPENROUTER_API_KEY}" }
+      "openrouter": { "apiKey": "${OPENROUTER_API_KEY}" }
     }
   },
   "agents": {
