@@ -224,8 +224,6 @@ async function swipe() {
           right: 'swipe right: a promising match for my preferences',
           left: 'swipe left: not a match, or shows one of my deal breakers',
         } },
-        // Separate yes/no check, so a charming bio can't hide a red flag.
-        deal_breaker: { type: 'noul', instructions: 'Does this profile show one of the deal breakers in `my_preferences`, or anything dangerous, violent or criminal?' },
         compatibility: { type: 'score', instructions: 'How compatible is this profile with `my_preferences`?',
           criteria: ['no way', 'unlikely', 'maybe', 'promising', 'soulmate material'] },
       },
@@ -233,12 +231,12 @@ async function swipe() {
   } catch (e) { $('log').textContent = 'Laya request failed: ' + e.message; card.classList.remove('thinking'); busy = false; return false; }
   card.classList.remove('thinking');
   card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash');
-  // Right only if Laya says right AND sees no deal breaker.
-  const said = answers.swipe.choice, danger = answers.deal_breaker.noul, compat = answers.compatibility.score;
-  const dir = said === 'right' && danger < 0.5 ? 'right' : 'left';
+  // The swipe question already weighs the deal breakers: a separate yes/no check never
+  // changed a decision on the 30 built-in profiles (Pixel 7a) and cost a third of the time.
+  const dir = answers.swipe.choice, compat = answers.compatibility.score;
   const label = answers.compatibility.legend ? answers.compatibility.legend[Math.round(compat)] : '';
   swiped++; totalMs += ms; if (dir === 'right') likes++;
-  $('log').textContent = `${p.name}: swipe ${dir}   (Laya said ${said}, deal breaker ${(danger * 100).toFixed(0)}%)\n` +
+  $('log').textContent = `${p.name}: swipe ${dir}\n` +
     `compatibility ${compat.toFixed(2)}/4 (${label})\n` +
     `${ms} ms, avg ${Math.round(totalMs / swiped)} ms   liked ${likes}/${swiped}\n\n${Laya.probs(answers.swipe.probabilities)}`;
   card.querySelector(dir === 'right' ? '.like' : '.nope').classList.add('on');
