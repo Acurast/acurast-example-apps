@@ -1,0 +1,166 @@
+<!doctype html>
+<!--
+  API: how to use this Laya instance directly. All examples are filled in with
+  the running instance's URL (and key, when the page has one), plus a live
+  "try it" box and the llms.txt link for AI agents.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laya API · Acurast</title>
+<link rel="stylesheet" href="demos.css">
+<style>
+  main { max-width: 900px; }
+  section { margin: 0 0 30px; }
+  h2 { font-size: 16px; color: var(--lime); margin-top: 8px; }
+  p { color: #cfcfcf; }
+  .kv { display: grid; grid-template-columns: 140px 1fr; gap: 8px 14px; align-items: center; padding: 14px; background: var(--panel); border: 2px solid var(--border); }
+  .kv div:nth-child(odd) { font: 11px var(--pixel); color: var(--muted); }
+  .kv code { word-break: break-all; }
+  .code { position: relative; }
+  pre { background: #0a0a0a; border: 2px solid var(--border); padding: 14px; overflow-x: auto; font: 13px/1.5 ui-monospace, monospace; color: #e8e8e8; margin: 8px 0; }
+  .code button.copy { position: absolute; top: 8px; right: 8px; font-size: 10px; padding: 4px 8px; }
+  .tabs { display: flex; gap: 6px; margin-top: 10px; }
+  .tabs button { background: var(--panel); color: var(--text); box-shadow: none; border: 2px solid var(--border); }
+  .tabs button.on { border-color: var(--lime); color: var(--lime); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { border: 2px solid var(--panel-2); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { font: 11px var(--pixel); color: var(--muted); }
+  td code { white-space: nowrap; }
+  #try-body { font: 13px/1.5 ui-monospace, monospace; min-height: 220px; }
+  .small { font-size: 12px; }
+  ul { color: #cfcfcf; line-height: 1.7; }
+  @media (max-width: 700px) { .kv { grid-template-columns: 1fr; } table { display: block; overflow-x: auto; } td code { white-space: normal; } pre { font-size: 12px; } }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <h1>API</h1>
+    <p>Everything the demos do is one HTTP call. Send Laya a <code>state</code> and typed <code>questions</code>;
+      it answers with a choice, a score or a yes/no probability. It runs on an Android phone in the Acurast Cloud.</p>
+    <div class="kv">
+      <div>Base URL</div><div><code id="base"></code></div>
+      <div>Auth header</div><div><code id="auth"></code> <button id="reveal" class="small" style="padding:3px 8px;margin-left:6px">show</button></div>
+      <div>For AI agents</div><div><a id="llms" target="_blank"></a> <span class="muted small">(llms.txt: the whole API in one file)</span></div>
+      <div>Status</div><div><span id="status" class="muted">checking...</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Quick start</h2>
+    <div class="tabs" id="tabs"><button data-t="curl" class="on">curl</button><button data-t="js">JavaScript</button><button data-t="py">Python</button></div>
+    <div class="code"><pre id="snippet"></pre><button class="copy" data-copy="snippet">copy</button></div>
+  </section>
+
+  <section>
+    <h2>Question types</h2>
+    <table>
+      <tr><th>type</th><th>you send</th><th>you get</th><th>good for</th></tr>
+      <tr><td><code>choice</code></td><td><code>"criteria": {"id": "description", ...}</code></td><td><code>choice</code> + <code>probabilities</code></td><td>routing, classification, picking a move</td></tr>
+      <tr><td><code>score</code></td><td><code>"criteria": ["level 0", "level 1", ...]</code></td><td><code>score</code> (0 to n-1) + <code>probabilities</code></td><td>ratings, severity, sentiment</td></tr>
+      <tr><td><code>noul</code></td><td>just <code>instructions</code></td><td><code>noul</code>: probability of yes (0 to 1)</td><td>yes/no checks, flags</td></tr>
+    </table>
+    <p class="small muted">Several questions in one request are answered in one pass. Refer to fields of <code>state</code> with backticks in
+      <code>instructions</code>, like <code>`message`</code>.</p>
+  </section>
+
+  <section>
+    <h2>Try it</h2>
+    <label>Request body (JSON)<textarea id="try-body" spellcheck="false"></textarea></label>
+    <button id="try-send">Send</button> <span id="try-time" class="muted small"></span>
+    <div class="code"><pre id="try-out">The response appears here.</pre></div>
+  </section>
+
+  <section>
+    <h2>Other endpoints</h2>
+    <ul>
+      <li><code>GET /health</code>: status and loaded model, no auth.</li>
+      <li><code>GET /feed?url=&lt;rss url&gt;</code>: fetches an RSS/Atom feed on the phone (same auth). Used by the Newsroom.</li>
+      <li><code>GET /llms.txt</code>: this page as plain text, for AI agents and coding assistants.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Good to know</h2>
+    <ul>
+      <li>About 2-4 s per question: a phone CPU, no GPU. Fewer questions per request is faster.</li>
+      <li>Context is about 512 tokens and English works best. Keep <code>state</code> short.</li>
+      <li>Probabilities are not perfectly calibrated. Scores tend to be more stable than yes/no.</li>
+      <li>This instance is temporary: the URL changes with every redeploy.</li>
+      <li>Model: <a href="https://huggingface.co/convaiinnovations/laya" target="_blank" rel="noopener">convaiinnovations/laya</a> (Apache-2.0).
+        Run your own on <a href="https://acurast.com/?utm_source=laya-demos&utm_medium=referral&utm_campaign=laya&utm_content=api" target="_blank" rel="noopener">Acurast</a>.</li>
+    </ul>
+  </section>
+</main>
+<script src="config.js"></script>
+<script src="laya.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const { url, key } = Laya.config();
+const base = url || location.origin;
+const shownKey = key || '<LAYA_API_KEY>';
+let reveal = false;
+
+const EXAMPLE = {
+  state: { message: 'You charged me twice this month, I want my money back today!' },
+  questions: {
+    intent: { type: 'choice', instructions: 'What does the customer want in `message`?',
+      criteria: { refund: 'money back or a duplicate charge reversed', technical_help: 'a bug or outage', other: 'anything else' } },
+    urgent: { type: 'noul', instructions: 'Does `message` communicate time pressure?' },
+    frustration: { type: 'score', instructions: 'How frustrated does the customer sound?', criteria: ['calm', 'annoyed', 'angry'] },
+  },
+};
+const body = JSON.stringify(EXAMPLE, null, 2);
+
+function snippets(k) {
+  return {
+    curl: `curl -s ${base}/v1/systemone \\\n  -H 'Authorization: Bearer ${k}' \\\n  -H 'Content-Type: application/json' \\\n  -d '${body.replace(/'/g, "'\\''")}' | jq\n\n# no jq? pipe into: python3 -m json.tool`,
+    js: `const res = await fetch('${base}/v1/systemone', {\n  method: 'POST',\n  headers: { 'Authorization': 'Bearer ${k}', 'Content-Type': 'application/json' },\n  body: JSON.stringify(${body.replace(/\n/g, '\n  ')}),\n});\nconst { answers } = await res.json();\nconsole.log(answers.intent.choice, answers.urgent.noul, answers.frustration.score);`,
+    py: `import requests\n\nres = requests.post(\n    '${base}/v1/systemone',\n    headers={'Authorization': 'Bearer ${k}'},\n    json=${body.replace(/\n/g, '\n    ').replace(/: true/g, ': True').replace(/: false/g, ': False')},\n)\nanswers = res.json()['answers']\nprint(answers['intent']['choice'], answers['urgent']['noul'], answers['frustration']['score'])`,
+  };
+}
+let tab = 'curl';
+function render() {
+  const k = reveal ? shownKey : (key ? key.slice(0, 6) + '…' : shownKey);
+  $('base').textContent = base;
+  $('auth').textContent = 'Authorization: Bearer ' + k;
+  $('reveal').textContent = reveal ? 'hide' : 'show';
+  $('reveal').style.display = key ? '' : 'none';
+  $('snippet').textContent = snippets(reveal ? shownKey : k)[tab];
+}
+$('reveal').onclick = () => { reveal = !reveal; render(); };
+$('tabs').onclick = e => {
+  const t = e.target.dataset.t; if (!t) return;
+  tab = t; [...$('tabs').children].forEach(b => b.classList.toggle('on', b.dataset.t === t)); render();
+};
+// Copy always uses the real key, even while it's hidden on screen.
+document.querySelectorAll('[data-copy]').forEach(b => b.onclick = async () => {
+  const text = b.dataset.copy === 'snippet' ? snippets(shownKey)[tab] : $(b.dataset.copy).textContent;
+  try { await navigator.clipboard.writeText(text); b.textContent = 'copied'; } catch (e) { b.textContent = 'copy failed'; }
+  setTimeout(() => { b.textContent = 'copy'; }, 1200);
+});
+$('llms').href = base + '/llms.txt'; $('llms').textContent = base + '/llms.txt';
+
+fetch(base + '/health').then(r => r.json())
+  .then(h => { $('status').textContent = `online · model ${h.loaded.join(', ')}`; $('status').style.color = 'var(--lime)'; })
+  .catch(() => { $('status').textContent = 'not reachable'; $('status').style.color = '#e5484d'; });
+
+$('try-body').value = body;
+$('try-send').onclick = async () => {
+  let parsed;
+  try { parsed = JSON.parse($('try-body').value); } catch (e) { $('try-out').textContent = 'Invalid JSON: ' + e.message; return; }
+  $('try-send').disabled = true; $('try-out').textContent = 'asking Laya on the phone...'; $('try-time').textContent = '';
+  try {
+    const { answers, ms } = await Laya.ask(parsed.state, parsed.questions);
+    $('try-out').textContent = JSON.stringify({ answers }, null, 2);
+    $('try-time').textContent = ms + ' ms';
+    const o = $('try-out'); o.classList.remove('flash'); void o.offsetWidth; o.classList.add('flash');
+  } catch (e) { $('try-out').textContent = e.message; }
+  $('try-send').disabled = false;
+};
+render();
+</script>
+</body>
+</html>

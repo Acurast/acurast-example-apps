@@ -1,0 +1,290 @@
+<!doctype html>
+<!--
+  Swipe for me: a mock dating app. You describe what you look for in a partner
+  for life; Laya reads each (strange, fictional) profile and swipes left or
+  right, plus a compatibility score. Avatars are procedurally drawn pixel faces.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laya Swipe · Acurast</title>
+<link rel="stylesheet" href="demos.css">
+<style>
+  .phone { width: 340px; max-width: 100%; height: 620px; border: 10px solid #2a2a2a; border-radius: 34px; background: #fafafa;
+           position: relative; overflow: hidden; color: #222; font-family: system-ui, sans-serif; }
+  .topbar { height: 44px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; color: #ff4f6d; }
+  .card { position: absolute; left: 12px; right: 12px; top: 52px; bottom: 84px; background: #fff; border-radius: 16px;
+          box-shadow: 0 6px 18px rgba(0,0,0,0.18); overflow: hidden; transition: transform 0.6s ease-in, opacity 0.6s ease-in; }
+  .card canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; }
+  .card .info { padding: 10px 14px; }
+  .card .name { font-size: 22px; font-weight: 800; }
+  .card .name span { font-weight: 400; }
+  .card .job { color: #777; font-size: 13px; margin: 2px 0 6px; }
+  .card .bio { font-size: 13px; line-height: 1.4; }
+  .chips { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .chips span { font-size: 11px; background: #ffe3e8; color: #c2185b; padding: 2px 7px; border-radius: 10px; }
+  .card .stamp { position: absolute; top: 24px; font: 900 34px system-ui, sans-serif; padding: 2px 10px; border: 5px solid; border-radius: 8px; opacity: 0; }
+  .card .stamp.like { left: 18px; color: #2ecc71; border-color: #2ecc71; transform: rotate(-15deg); }
+  .card .stamp.nope { right: 18px; color: #ff4f6d; border-color: #ff4f6d; transform: rotate(15deg); }
+  .card .stamp.on { opacity: 1; transition: opacity 0.15s; }
+  .card.thinking::after { content: 'Laya is reading...'; position: absolute; left: 0; right: 0; bottom: 0; padding: 6px;
+          background: rgba(0,0,0,0.6); color: #fff; font-size: 12px; text-align: center; }
+  .buttons { position: absolute; bottom: 14px; left: 0; right: 0; display: flex; justify-content: center; gap: 18px; }
+  .buttons button { width: 56px; height: 56px; border-radius: 50%; border: none; font-size: 24px; background: #fff; box-shadow: 0 3px 10px rgba(0,0,0,0.2); color: #222; }
+  .buttons button.laya { width: 120px; border-radius: 28px; font-size: 14px; font-weight: 700; background: #ff4f6d; color: #fff; }
+  .match { position: absolute; inset: 0; background: rgba(20,0,10,0.85); color: #fff; display: none; flex-direction: column;
+           align-items: center; justify-content: center; gap: 12px; font: 900 34px system-ui, sans-serif; text-align: center; z-index: 5; }
+  .match.on { display: flex; }
+  .match canvas { width: 120px; height: 120px; image-rendering: pixelated; border-radius: 50%; border: 4px solid #ff4f6d; }
+  .match small { font: 14px system-ui, sans-serif; opacity: 0.8; }
+  .matches { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .matches canvas { width: 48px; height: 48px; image-rendering: pixelated; border-radius: 50%; border: 2px solid #ff4f6d; }
+  @media (max-width: 700px) { .phone { width: 100%; max-width: 380px; height: 600px; border-width: 6px; border-radius: 24px; } .card canvas { width: 72%; margin: 8px auto 0; border-radius: 10px; } }
+</style>
+</head>
+<body>
+<a class="back" href="index.html">&larr; all demos</a>
+<div class="wrap">
+  <div class="phone">
+    <div class="topbar">laya&#9829;match</div>
+    <div id="deck"></div>
+    <div class="match" id="match"><div>It's a match!</div><canvas id="matchface" width="16" height="16"></canvas><small id="matchname"></small></div>
+    <div class="buttons">
+      <button id="auto" title="Let Laya keep swiping">&#9654;</button>
+      <button class="laya" id="swipe">Laya, swipe</button>
+    </div>
+  </div>
+  <div class="side">
+    <h3>Swipe for me</h3>
+    <label>What I look for in a partner for life
+      <textarea id="prefs" rows="6"></textarea></label>
+    <details><summary>Share your own profile</summary>
+      <label>Name<input id="own-name" placeholder="you, a friend, anyone"></label>
+      <label>Age<input id="own-age" type="number" min="18" max="999" value="30"></label>
+      <label>Job<input id="own-job"></label>
+      <label>Bio<textarea id="own-bio" rows="3" placeholder="Write it like a real dating profile."></textarea></label>
+      <label>Interests (comma separated)<input id="own-tags"></label>
+      <button id="own-add">Put my profile next in the deck</button>
+    </details>
+    <div class="log" id="log">Press "Laya, swipe" or &#9654; for autopilot.</div>
+    <h4>Matches</h4>
+    <div class="matches" id="matches"><span class="muted">none yet</span></div>
+  </div>
+</div>
+<script src="config.js"></script>
+<script src="laya.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const DEFAULT_PREFS = 'I am looking for a partner for life. Kind, honest and loyal. Curious, likes nature, ' +
+  'traveling and cooking together. Wants a family someday. Deal breakers: smoking, gambling, ' +
+  'get-rich-quick crypto schemes, being rude to waiters.';
+try { $('prefs').value = localStorage.getItem('laya-tinder-prefs') || DEFAULT_PREFS; } catch (e) { $('prefs').value = DEFAULT_PREFS; }
+$('prefs').oninput = () => { try { localStorage.setItem('laya-tinder-prefs', $('prefs').value); } catch (e) {} };
+
+// ---------------------------------------------------------------- fictional profiles
+const PROFILES = [
+  { name: 'Mara', age: 31, job: 'Forest ranger', bio: 'I talk to trees and they mostly agree with me. Looking for someone to hike with and grow old with. I make a mean mushroom risotto.', tags: ['hiking', 'cooking', 'owls'] },
+  { name: 'Chad', age: 29, job: 'Crypto visionary (self-employed)', bio: 'My portfolio is down 94% but my mindset is up 1000%. Looking for a queen who believes in my coin. Casino on Fridays.', tags: ['NFTs', 'poker', 'grindset'] },
+  { name: 'Ines', age: 34, job: 'Pediatric nurse', bio: 'Night shifts, strong coffee, soft heart. I want a big messy family table one day. Always tip the waiter.', tags: ['family', 'travel', 'baking'] },
+  { name: 'Gerald', age: 52, job: 'Competitive pigeon trainer', bio: 'My pigeon Susan has won three regional titles. You must love Susan. Susan comes first. Non-negotiable.', tags: ['pigeons', 'Susan', 'more Susan'] },
+  { name: 'Leo', age: 33, job: 'Carpenter', bio: 'Built my own tiny house, now I need someone to make it feel big. Loves road trips, campfires and terrible puns. Wants kids.', tags: ['woodwork', 'road trips', 'puns'] },
+  { name: 'Vex', age: 27, job: 'Professional vaper', bio: 'I smoke two packs a day but I vape in between so it cancels out. Just here for a good time, not a long time.', tags: ['vaping', 'raves', 'no plans'] },
+  { name: 'Priya', age: 30, job: 'Marine biologist', bio: 'Spent a year on a research boat counting whales. Curious about everything. Dream: sail around the world with my future family.', tags: ['sailing', 'science', 'curry'] },
+  { name: 'Bartholomew', age: 45, job: 'Medieval re-enactor', bio: 'I live as a 14th century knight on weekends and most weekdays. Seeking a fair maiden to churn butter with. Owns 6 swords.', tags: ['jousting', 'mead', 'swords'] },
+  { name: 'Sam', age: 36, job: 'Primary school teacher', bio: 'Patient, loyal, a bit nerdy. Weekends: farmers market, cooking something new, then a long walk by the lake. Ready for something real.', tags: ['cooking', 'lakes', 'board games'] },
+  { name: 'Rex', age: 38, job: 'Restaurant critic', bio: 'I send back every dish and argue with every waiter, it builds character. Looking for someone who can keep up with my standards.', tags: ['fine dining', 'complaints', 'wine'] },
+  { name: 'Yuki', age: 29, job: 'Travel photographer', bio: 'Been to 47 countries, still get excited by a new bakery. Looking for a co-pilot for life. Bonus points if you can cook dumplings.', tags: ['travel', 'photography', 'dumplings'] },
+  { name: 'Kevin', age: 41, job: 'Lives in a van, down by the river', bio: 'Free spirit. Allergic to commitment and to most vegetables. Will cancel plans last minute, it is part of the charm.', tags: ['vanlife', 'no commitment', 'fries'] },
+  { name: 'Noor', age: 32, job: 'Architect', bio: 'I design homes for other people; want to build one with the right person. Loves mountains, spicy food and slow Sunday mornings.', tags: ['mountains', 'design', 'spicy food'] },
+  { name: 'Brenda', age: 47, job: 'Slot machine enthusiast', bio: 'Vegas twice a month. I feel lucky tonight! Looking for someone who will cover my buy-in and never ask how it went.', tags: ['casinos', 'luck', 'credit'] },
+  { name: 'Theo', age: 35, job: 'Beekeeper and cook', bio: 'Gentle with bees and people. I make honey, bread and sometimes mistakes. Would love to raise kids in a house with a big garden.', tags: ['bees', 'gardening', 'bread'] },
+  { name: 'Xylo', age: 999, job: 'Visiting from Andromeda', bio: 'Earth customs are confusing. What is a "family"? I would like to try one. I eat rocks. Kind to all carbon-based life.', tags: ['space', 'rocks', 'learning'] },
+];
+
+// Long-dead historical figures, parody profiles. Some great matches, many red flags.
+const HISTORIC = [
+  { name: 'Marie Curie', age: 66, job: 'Physicist and chemist, two Nobel prizes', bio: 'Curious about everything, especially things that glow. Loyal partner, looking for someone to do science and raise a family with. My notebooks are still slightly radioactive.', tags: ['science', 'nobel prizes', 'glowing rocks'] },
+  { name: 'Ada Lovelace', age: 36, job: 'Mathematician, first programr', bio: 'Wrote the first computer program before computers existed. Loves poetry and long talks about engines. Also I bet on horse races. A lot. Mostly losing.', tags: ['maths', 'poetry', 'horse betting'] },
+  { name: 'Henry VIII', age: 55, job: 'King of England', bio: 'Six marriages so far, looking for number seven. Must want an heir, urgently. Loves jousting, banquets and changing the rules when it suits me.', tags: ['jousting', 'banquets', 'divorce'], look: 'crown' },
+  { name: 'Casanova', age: 73, job: 'Adventurer and professional charmer', bio: 'Escaped a Venetian prison with a spoon. Have loved hundreds, committed to none. Why settle down when there is always another masquerade? Card games every night.', tags: ['masquerades', 'gambling', 'escapes'] },
+  { name: 'Napoleon', age: 51, job: 'Emperor (formerly)', bio: 'Conquered most of Europe, then got exiled twice. I am taller than they say. Looking for a Josephine who does not mind long winter trips to Russia.', tags: ['conquest', 'islands', 'hats'], look: 'bicorne' },
+  { name: 'Cleopatra', age: 39, job: 'Pharaoh of Egypt', bio: 'Speaks nine languages, bathes in donkey milk. Exes: Julius Caesar, Mark Antony. Things tend to end dramatically. Owns a snake.', tags: ['politics', 'luxury', 'snakes'], look: 'crown' },
+  { name: 'Rasputin', age: 47, job: 'Mystic healer, royal advisor', bio: 'Mystic, royal advisor, very hard to get rid of. Wild beard, wilder parties, zero boundaries.', tags: ['mysticism', 'parties', 'survival'], look: 'beard' },
+  { name: 'Leonardo da Vinci', age: 67, job: 'Painter, inventor, engineer', bio: 'I start many projects and finish a few. Vegetarian, loves nature, rivers and flying machines. I will paint your portrait, but it may take 16 years.', tags: ['painting', 'nature', 'inventions'], look: 'beard' },
+  { name: 'Frida Kahlo', age: 47, job: 'Painter', bio: 'Loyal, passionate, paints her feelings. Loves animals: monkeys, parrots, a deer. Married the same man twice, so I believe in second chances.', tags: ['art', 'animals', 'flowers'] },
+  { name: 'Al Capone', age: 48, job: 'Businessman, import/export, Chicago', bio: 'Generous tipper, loves my family and opened soup kitchens. Just do not ask about the business. Casinos, speakeasies and a strong alibi.', tags: ['casinos', 'family', 'tax trouble'], look: 'fedora' },
+  { name: 'Abraham Lincoln', age: 56, job: '16th President of the USA', bio: 'Honest Abe. Self-taught lawyer, grew up in a log cabin, great storyteller. Looking for a loyal partner for life. Theatre dates: maybe not.', tags: ['honesty', 'storytelling', 'log cabins'], look: 'tophat' },
+  { name: 'Caligula', age: 28, job: 'Roman Emperor', bio: 'Made my horse a senator. I throw the best parties in Rome, then declare war on the sea. Mood swings? Never heard of them.', tags: ['parties', 'horses', 'chaos'], look: 'crown' },
+  { name: 'Blackbeard', age: 38, job: 'Pirate captain', bio: 'Lights fireworks in his beard for the aesthetic. A different sweetheart in every port. Rum, gold and a parrot named Kevin.', tags: ['sailing', 'rum', 'parrots'], look: 'beard' },
+  { name: 'Mozart', age: 35, job: 'Composer', bio: 'Wrote my first symphony at 8. Loves puns, billiards and card games, a bit too much. Big heart, empty wallet. Will write you a song.', tags: ['music', 'billiards', 'debts'] },
+];
+
+// ---------------------------------------------------------------- pixel faces (16x16, seeded per profile)
+function rng(seed) { return () => { seed = (seed + 0x6D2B79F5) | 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const pick = (r, a) => a[Math.floor(r() * a.length)];
+function face(canvas, seed, name, look) {
+  const g = canvas.getContext('2d'), r = rng(seed * 7919 + 13);
+  const px = (x, y, c, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+  const bg = pick(r, ['#ffd6e0', '#c8e7ff', '#d8f3dc', '#fff3b0', '#e4c1f9', '#ffcfa3']);
+  const skin = pick(r, ['#f1c27d', '#e0ac69', '#c68642', '#8d5524', '#ffdbac', '#9ad0a0']);
+  const hair = pick(r, ['#2b1d0e', '#6b3e1f', '#e8c170', '#b83a1b', '#222', '#9e9e9e', '#7b3fe4']);
+  px(0, 0, bg, 16, 16);
+  px(4, 4, skin, 8, 9); px(3, 7, skin, 1, 3); px(12, 7, skin, 1, 3);   // head, ears
+  px(6, 13, skin, 4, 2); px(3, 15, pick(r, ['#ff4f6d', '#3a86ff', '#46a758', '#333']), 10, 1); // neck, shirt
+  const style = pick(r, ['short', 'long', 'bald', 'mohawk', 'bun', 'curly']);
+  if (style === 'short') { px(4, 3, hair, 8, 2); px(4, 5, hair, 1, 1); px(11, 5, hair, 1, 1); }
+  if (style === 'long') { px(4, 3, hair, 8, 2); px(3, 4, hair, 1, 9); px(12, 4, hair, 1, 9); }
+  if (style === 'mohawk') { px(7, 1, hair, 2, 4); }
+  if (style === 'bun') { px(4, 3, hair, 8, 2); px(6, 1, hair, 4, 2); }
+  if (style === 'curly') { for (let x = 3; x < 13; x += 2) px(x, 2 + (x % 4 ? 1 : 0), hair, 2, 2); px(3, 4, hair, 1, 3); px(12, 4, hair, 1, 3); }
+  const eyes = pick(r, ['dots', 'dots', 'sunglasses', 'glasses', 'wide']);
+  if (eyes === 'dots') { px(6, 7, '#222'); px(9, 7, '#222'); }
+  if (eyes === 'wide') { px(5, 7, '#fff', 2, 2); px(9, 7, '#fff', 2, 2); px(6, 8, '#222'); px(9, 8, '#222'); }
+  if (eyes === 'sunglasses') { px(5, 7, '#111', 2, 2); px(9, 7, '#111', 2, 2); px(7, 7, '#111', 2, 1); }
+  if (eyes === 'glasses') { px(5, 7, '#555', 3, 1); px(8, 7, '#555', 3, 1); px(6, 8, '#222'); px(9, 8, '#222'); }
+  const mouth = pick(r, ['smile', 'flat', 'grin', 'o']);
+  if (mouth === 'smile') { px(6, 11, '#8a2b2b'); px(7, 12, '#8a2b2b', 2, 1); px(9, 11, '#8a2b2b'); }
+  if (mouth === 'flat') px(6, 11, '#8a2b2b', 4, 1);
+  if (mouth === 'grin') { px(6, 11, '#8a2b2b', 4, 2); px(7, 11, '#fff', 2, 1); }
+  if (mouth === 'o') px(7, 11, '#8a2b2b', 2, 2);
+  const extra = pick(r, ['none', 'none', 'mustache', 'beard', 'earring', 'hat', 'blush']);
+  if (extra === 'mustache') px(6, 10, hair, 4, 1);
+  if (extra === 'beard') { px(4, 11, hair, 1, 2); px(11, 11, hair, 1, 2); px(5, 13, hair, 6, 1); }
+  if (extra === 'earring') px(12, 10, '#ffd60a');
+  if (extra === 'hat') { px(3, 2, '#333', 10, 1); px(5, 0, '#333', 6, 2); }
+  if (extra === 'blush') { px(5, 9, '#ff8fa3'); px(10, 9, '#ff8fa3'); }
+  if (name === 'Xylo') { px(4, 4, '#7bd389', 8, 9); px(6, 1, '#7bd389', 1, 3); px(9, 1, '#7bd389', 1, 3); px(5, 7, '#111', 2, 2); px(9, 7, '#111', 2, 2); }
+  // Costume for historical figures.
+  if (look === 'crown') { px(4, 1, '#ffd60a', 8, 2); px(4, 0, '#ffd60a'); px(7, 0, '#ffd60a', 2, 1); px(11, 0, '#ffd60a'); px(7, 1, '#e5484d'); }
+  if (look === 'tophat') { px(3, 3, '#111', 10, 1); px(5, 0, '#111', 6, 3); }
+  if (look === 'bicorne') { px(2, 2, '#111', 12, 2); px(5, 1, '#111', 6, 1); px(7, 2, '#e5484d', 2, 1); }
+  if (look === 'fedora') { px(3, 3, '#333', 10, 1); px(5, 1, '#333', 6, 2); px(5, 2, '#111', 6, 1); }
+  if (look === 'mustache') px(5, 10, '#222', 6, 1);
+  if (look === 'beard') { px(4, 10, '#2b1d0e', 8, 1); px(4, 11, '#2b1d0e', 1, 2); px(11, 11, '#2b1d0e', 1, 2); px(5, 13, '#2b1d0e', 6, 2); }
+  if (name === 'Gerald') { px(11, 12, '#9e9e9e', 3, 2); px(13, 11, '#9e9e9e'); px(14, 12, '#ffd60a'); } // Susan the pigeon
+}
+
+// Endless supply after the handcrafted ones: random mixes of good signals and deal breakers.
+const GEN = {
+  names: ['Alex', 'Robin', 'Jules', 'Mika', 'Sasha', 'Nico', 'Kim', 'Luca', 'Ada', 'Omar', 'Lena', 'Felix', 'Zoe', 'Emil', 'Rosa', 'Tariq', 'Greta', 'Hugo', 'Ines', 'Pim', 'Dotty', 'Ragnar', 'Moss', 'Juniper'],
+  jobs: ['Librarian', 'Volcano tour guide', 'Dog groomer', 'Software developer', 'Goat yoga instructor', 'Firefighter', 'Day trader (from bed)',
+    'Chef', 'Mime (retired)', 'Veterinarian', 'Influencer (312 followers)', 'Park ranger', 'Tax advisor', 'Circus juggler', 'Organic farmer', 'Lighthouse keeper'],
+  openers: ['Honest to a fault.', 'Hopeless romantic.', 'I laugh at my own jokes, loudly.', 'Chaos with a calendar.', 'Gentle giant.',
+    'Tired of games, looking for my person.', 'Allegedly charming.', 'My mom thinks I am a catch.', 'Recovering night owl.'],
+  middles: ['Weekends are for hiking and cooking big dinners for friends.', 'I smoke, but only when I am awake.', 'Just put my savings into a coin my barber recommended.',
+    'Would love kids and a dog someday.', 'Poker night is sacred, every night.', 'Traveled through South America by bus and would do it again.',
+    'I think tipping is a scam.', 'I volunteer at the animal shelter on Sundays.', 'Collecting spoons from every country I visit.',
+    'Terrified of commitment, and of ducks.', 'Currently building a cabin by the lake.', 'I bake bread when I am stressed, so I bake a lot.'],
+  closers: ['Swipe right if you can handle a board game rematch.', 'Not looking for anything serious.', 'Ready for the real thing.',
+    'Must love long walks and longer talks.', 'Bonus points if you own a canoe.', 'No drama please, I bring my own.', 'Let us grow old and weird together.'],
+  tags: ['hiking', 'cooking', 'poker', 'crypto', 'travel', 'dogs', 'cats', 'smoking', 'yoga', 'baking', 'camping', 'casinos', 'gardening', 'karaoke', 'kids someday', 'no kids ever', 'ducks'],
+};
+let nextSeed = 1000;
+function generateProfile() {
+  const seed = nextSeed++, r = rng(seed), tags = new Set();
+  while (tags.size < 3) tags.add(pick(r, GEN.tags));
+  return {
+    name: pick(r, GEN.names), age: 22 + Math.floor(r() * 30), job: pick(r, GEN.jobs), seed,
+    bio: `${pick(r, GEN.openers)} ${pick(r, GEN.middles)} ${pick(r, GEN.closers)}`, tags: [...tags],
+  };
+}
+
+// ---------------------------------------------------------------- deck
+let deck = PROFILES.concat(HISTORIC).map((p, i) => ({ ...p, seed: i + 1 })).sort(() => Math.random() - 0.5);
+const refill = () => { while (deck.length < 3) deck.push(generateProfile()); };
+let busy = false, auto = false, swiped = 0, likes = 0, totalMs = 0;
+function renderCard() {
+  const p = deck[0], el = $('deck');
+  el.innerHTML = '';
+  if (!p) return;
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `<canvas width="16" height="16"></canvas><div class="stamp like">LIKE</div><div class="stamp nope">NOPE</div>
+    <div class="info"><div class="name"></div><div class="job"></div><div class="bio"></div><div class="chips"></div></div>`;
+  face(card.querySelector('canvas'), p.seed, p.name, p.look);
+  card.querySelector('.name').textContent = p.name + ' ';
+  card.querySelector('.name').appendChild(Object.assign(document.createElement('span'), { textContent: p.age }));
+  card.querySelector('.job').textContent = p.job;
+  card.querySelector('.bio').textContent = p.bio;
+  card.querySelector('.chips').innerHTML = p.tags.map(t => `<span>${t.replace(/</g, '&lt;')}</span>`).join('');
+  el.appendChild(card);
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function swipe() {
+  const p = deck[0], card = $('deck').querySelector('.card');
+  if (!p || busy) return false;
+  busy = true; card.classList.add('thinking');
+  let answers, ms;
+  try {
+    ({ answers, ms } = await Laya.ask(
+      { my_preferences: $('prefs').value, profile: `${p.name}, ${p.age}, ${p.job}. ${p.bio} Interests: ${p.tags.join(', ')}.` },
+      {
+        swipe: { type: 'choice', instructions: 'Should I swipe right on this profile, given `my_preferences` for a partner for life?', criteria: {
+          right: 'swipe right: a promising match for my preferences',
+          left: 'swipe left: not a match, or shows one of my deal breakers',
+        } },
+        // Separate yes/no check, so a charming bio can't hide a red flag.
+        deal_breaker: { type: 'noul', instructions: 'Does this profile show one of the deal breakers in `my_preferences`, or anything dangerous, violent or criminal?' },
+        compatibility: { type: 'score', instructions: 'How compatible is this profile with `my_preferences`?',
+          criteria: ['no way', 'unlikely', 'maybe', 'promising', 'soulmate material'] },
+      },
+    ));
+  } catch (e) { $('log').textContent = 'Laya request failed: ' + e.message; card.classList.remove('thinking'); busy = false; return false; }
+  card.classList.remove('thinking');
+  card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash');
+  // Right only if Laya says right AND sees no deal breaker.
+  const said = answers.swipe.choice, danger = answers.deal_breaker.noul, compat = answers.compatibility.score;
+  const dir = said === 'right' && danger < 0.5 ? 'right' : 'left';
+  const label = answers.compatibility.legend ? answers.compatibility.legend[Math.round(compat)] : '';
+  swiped++; totalMs += ms; if (dir === 'right') likes++;
+  $('log').textContent = `${p.name}: swipe ${dir}   (Laya said ${said}, deal breaker ${(danger * 100).toFixed(0)}%)\n` +
+    `compatibility ${compat.toFixed(2)}/4 (${label})\n` +
+    `${ms} ms, avg ${Math.round(totalMs / swiped)} ms   liked ${likes}/${swiped}\n\n${Laya.probs(answers.swipe.probabilities)}`;
+  card.querySelector(dir === 'right' ? '.like' : '.nope').classList.add('on');
+  Laya.offerShare({ kicker: `Laya swiped for me on ${p.name}, ${p.age} (${p.job})`, big: dir === 'right' ? 'LIKE' : 'NOPE',
+    detail: `Compatibility ${compat.toFixed(1)}/4 (${label}). ${p.bio}` }, $('log'));
+  await sleep(700);
+  card.style.transform = `translateX(${dir === 'right' ? 460 : -460}px) rotate(${dir === 'right' ? 28 : -28}deg)`;
+  card.style.opacity = '0';
+  await sleep(600);
+  if (dir === 'right' && compat >= 2.5) await match(p);
+  deck.shift(); refill(); renderCard();
+  busy = false;
+  return true;
+}
+async function match(p) {
+  face($('matchface'), p.seed, p.name, p.look);
+  $('matchname').textContent = `You and ${p.name} like each other`;
+  $('match').classList.add('on');
+  const m = document.createElement('canvas'); m.width = m.height = 16; m.title = p.name; face(m, p.seed, p.name, p.look);
+  const list = $('matches'); if (list.querySelector('.muted')) list.innerHTML = '';
+  list.appendChild(m);
+  while (list.children.length > 40) list.firstChild.remove(); // endless swiping: keep the newest
+  await sleep(1600);
+  $('match').classList.remove('on');
+}
+// Your own profile goes to the top of the deck (behind the card Laya may be reading).
+$('own-add').onclick = () => {
+  const bio = $('own-bio').value.trim();
+  if (!bio) { $('log').textContent = 'Write a bio first.'; return; }
+  const p = { name: $('own-name').value.trim() || 'Mystery person', age: +$('own-age').value || 30,
+    job: $('own-job').value.trim() || 'Keeps it mysterious', bio,
+    tags: $('own-tags').value.split(',').map(t => t.trim()).filter(Boolean).slice(0, 5), seed: nextSeed++ };
+  if (!p.tags.length) p.tags = ['surprises'];
+  deck.splice(busy ? 1 : 0, 0, p);
+  if (!busy) renderCard();
+  $('own-bio').value = '';
+  $('log').textContent = `${p.name} is ${busy ? 'next' : 'up now'}. Press "Laya, swipe".`;
+};
+$('swipe').onclick = () => { auto = false; $('auto').innerHTML = '&#9654;'; swipe(); };
+$('auto').onclick = async () => {
+  auto = !auto; $('auto').innerHTML = auto ? '&#10074;&#10074;' : '&#9654;';
+  // Forever: the deck refills itself; only a failed request (or pause) stops it.
+  while (auto) { if (!(await swipe())) { if (!busy) auto = false; await sleep(300); } }
+  auto = false; $('auto').innerHTML = '&#9654;';
+};
+renderCard();
+</script>
+</body>
+</html>

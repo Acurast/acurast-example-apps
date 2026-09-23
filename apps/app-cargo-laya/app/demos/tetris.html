@@ -1,0 +1,265 @@
+<!doctype html>
+<!--
+  Tetris, placements chosen by Laya.
+  For each piece the page lists the 5 best placements by a classic heuristic
+  (lines cleared, new holes, stack height, bumpiness), shuffles them, and Laya
+  picks one. Modes:
+    step      - the game waits for Laya, then drops the piece where it chose.
+    real-time - the piece falls at a fixed speed; when Laya's answer arrives the
+                piece jumps to the chosen rotation/column if it still fits.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laya Tetris · Acurast</title>
+<link rel="stylesheet" href="demos.css">
+<style>
+  .board { position: relative; }
+  canvas { display: block; background: #181818; border: 2px solid var(--border); max-width: 100%; }
+  #badge { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none;
+           font-size: 34px; color: var(--lime); font-family: var(--pixel); text-shadow: 0 0 12px #000; opacity: 0; }
+  .board.flash #badge { animation: badge 0.9s ease-out; }
+  @keyframes badge { from { opacity: 1; transform: scale(1.15); } to { opacity: 0; transform: scale(1); } }
+  @media (max-width: 700px) { canvas { width: min(100%, 260px); } #badge { font-size: 24px; } }
+</style>
+</head>
+<body>
+<a class="back" href="index.html">&larr; all demos</a>
+<div class="wrap">
+  <div class="board" id="board"><canvas id="c"></canvas><div id="badge"></div></div>
+  <div class="side">
+    <h3>Tetris: Laya picks every placement</h3>
+    <label>Mode
+      <select id="mode">
+        <option value="step">step: game waits for each decision</option>
+        <option value="realtime">real-time: pieces fall, Laya catches up</option>
+      </select>
+    </label>
+    <details><summary>Give Laya your own strategy</summary>
+      <label>Added to every question<input id="hint" placeholder="e.g. only care about clearing lines"></label>
+    </details>
+    <label id="speedrow">Gravity: <span id="speedv"></span> ms per row
+      <input id="speed" type="range" min="100" max="1000" step="50" value="400"></label>
+    <button id="go">Start</button>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+<script src="config.js"></script>
+<script src="laya.js"></script>
+<script>
+const W = 10, H = 20, C = 26;
+const $ = id => document.getElementById(id);
+const canvas = $('c'), ctx = canvas.getContext('2d'), log = $('log'), modeIn = $('mode'), speedIn = $('speed');
+canvas.width = W * C; canvas.height = H * C;
+try { modeIn.value = localStorage.getItem('laya-tetris-mode') || 'step'; } catch (e) {}
+const showSpeed = () => { $('speedrow').style.display = modeIn.value === 'realtime' ? '' : 'none'; };
+$('speedv').textContent = speedIn.value;
+speedIn.oninput = () => { $('speedv').textContent = speedIn.value; if (timer) { clearInterval(timer); timer = setInterval(gravity, +speedIn.value); } };
+modeIn.onchange = showSpeed; showSpeed();
+
+// ---------------------------------------------------------------- pieces
+const SHAPES = {
+  I: [[0, 0], [1, 0], [2, 0], [3, 0]], O: [[0, 0], [1, 0], [0, 1], [1, 1]],
+  T: [[0, 0], [1, 0], [2, 0], [1, 1]], S: [[1, 0], [2, 0], [0, 1], [1, 1]],
+  Z: [[0, 0], [1, 0], [1, 1], [2, 1]], J: [[0, 0], [0, 1], [1, 1], [2, 1]],
+  L: [[2, 0], [0, 1], [1, 1], [2, 1]],
+};
+const COLORS = { I: '#4cc9f0', O: '#ffd60a', T: '#b5179e', S: '#46a758', Z: '#e5484d', J: '#3a86ff', L: '#fb8500' };
+const normalize = cells => {
+  const mx = Math.min(...cells.map(c => c[0])), my = Math.min(...cells.map(c => c[1]));
+  return cells.map(([x, y]) => [x - mx, y - my]);
+};
+// Distinct rotations: [{ r: clockwise quarter turns, cells }].
+function rotations(type) {
+  const out = []; let cells = SHAPES[type];
+  for (let r = 0; r < 4; r++) {
+    const n = normalize(cells), key = JSON.stringify(n.map(c => c.join()).sort());
+    if (!out.some(o => o.key === key)) out.push({ r, cells: n, key });
+    cells = cells.map(([x, y]) => [-y, x]);
+  }
+  return out;
+}
+const ROT = Object.fromEntries(Object.keys(SHAPES).map(t => [t, rotations(t)]));
+const width = cells => Math.max(...cells.map(c => c[0])) + 1;
+
+// ---------------------------------------------------------------- board
+let board, piece, pieceNo, lines, score, decisions, totalMs, missed, running = false, timer = null, game = 0, last = null, target = null;
+const emptyBoard = () => Array.from({ length: H }, () => Array(W).fill(null));
+const fits = (b, cells, x, y) => cells.every(([cx, cy]) => {
+  const X = x + cx, Y = y + cy;
+  return X >= 0 && X < W && Y < H && (Y < 0 || !b[Y][X]);
+});
+function dropY(b, cells, x) {
+  let y = 0;
+  if (!fits(b, cells, x, y)) return null;
+  while (fits(b, cells, x, y + 1)) y++;
+  return y;
+}
+// Returns [newBoard, linesCleared].
+function place(b, cells, x, y, color) {
+  const nb = b.map(row => row.slice());
+  cells.forEach(([cx, cy]) => { if (y + cy >= 0) nb[y + cy][x + cx] = color; });
+  const kept = nb.filter(row => row.some(v => !v));
+  const cleared = H - kept.length;
+  return [Array.from({ length: cleared }, () => Array(W).fill(null)).concat(kept), cleared];
+}
+function stats(b) {
+  const heights = [];
+  let holes = 0;
+  for (let x = 0; x < W; x++) {
+    let top = H;
+    for (let y = 0; y < H; y++) if (b[y][x]) { top = y; break; }
+    heights.push(H - top);
+    for (let y = top + 1; y < H; y++) if (!b[y][x]) holes++;
+  }
+  let bump = 0;
+  for (let x = 1; x < W; x++) bump += Math.abs(heights[x] - heights[x - 1]);
+  return { holes, bump, maxH: Math.max(...heights), agg: heights.reduce((a, v) => a + v, 0) };
+}
+
+// ---------------------------------------------------------------- candidates for Laya
+function candidates(type) {
+  const before = stats(board), all = [];
+  for (const rot of ROT[type]) {
+    const w = width(rot.cells);
+    for (let x = 0; x + w <= W; x++) {
+      const y = dropY(board, rot.cells, x);
+      if (y === null) continue;
+      const [nb, cleared] = place(board, rot.cells, x, y, 'x');
+      const s = stats(nb), newHoles = Math.max(0, s.holes - before.holes);
+      // Classic weights (Yiyuan Lee's tetris AI); only used to shortlist.
+      const h = -0.51 * s.agg + 0.76 * cleared - 0.36 * s.holes - 0.18 * s.bump;
+      const text = `${rot.r ? `rotate ${rot.r}x` : 'no rotation'}, columns ${x + 1}-${x + w}: ` +
+        `${cleared ? `clears ${cleared} line${cleared > 1 ? 's' : ''}` : 'clears no line'}, ` +
+        `${newHoles ? `creates ${newHoles} hole${newHoles > 1 ? 's' : ''}` : 'no new holes'}, ` +
+        `stack height ${s.maxH}, bumpiness ${s.bump}`;
+      all.push({ id: `r${rot.r}x${x}`, r: rot.r, cells: rot.cells, x, h, text });
+    }
+  }
+  const top = all.sort((a, b) => b.h - a.h).slice(0, 5);
+  for (let i = top.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [top[i], top[j]] = [top[j], top[i]]; }
+  return top;
+}
+async function decide(type, cands) {
+  const s = stats(board);
+  const { answers, ms } = await Laya.ask(
+    { piece: type, stack_height: s.maxH, existing_holes: s.holes },
+    { place: {
+      type: 'choice',
+      instructions: 'Choose where to drop this Tetris piece. Clearing lines is best, never create holes if avoidable, keep the stack low and flat.' +
+        ($('hint').value.trim() ? ` Player's strategy: ${$('hint').value.trim()}` : ''),
+      criteria: Object.fromEntries(cands.map(c => [c.id, c.text])),
+    } },
+  );
+  decisions++; totalMs += ms;
+  return { choice: cands.find(c => c.id === answers.place.choice), probabilities: answers.place.probabilities, ms };
+}
+
+// ---------------------------------------------------------------- game flow
+function spawn() {
+  const types = Object.keys(SHAPES), type = types[Math.floor(Math.random() * types.length)];
+  const rot = ROT[type][0], x = Math.floor((W - width(rot.cells)) / 2);
+  if (!fits(board, rot.cells, x, 0)) return false;
+  piece = { type, r: rot.r, cells: rot.cells, x, y: 0, no: ++pieceNo };
+  target = null;
+  return true;
+}
+function lock() {
+  const [nb, cleared] = place(board, piece.cells, piece.x, piece.y, COLORS[piece.type]);
+  board = nb; lines += cleared; score += [0, 100, 300, 500, 800][cleared];
+  piece = null;
+}
+function applyChoice(c) {
+  // Jump to the chosen rotation/column at the current height, if it fits there.
+  if (fits(board, c.cells, c.x, piece.y)) { Object.assign(piece, { r: c.r, cells: c.cells, x: c.x }); target = c; return true; }
+  return false;
+}
+function showDecision(d) {
+  last = d;
+  const c = d.choice;
+  $('badge').textContent = c ? `${c.r ? '↻' + c.r + ' ' : ''}col ${c.x + 1}` : '?';
+  const b = $('board'); b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash');
+}
+
+// Step mode: ask, then drop the piece where Laya chose.
+async function stepLoop(id) {
+  while (running && id === game) {
+    if (!spawn()) return gameOver('no room for the next piece');
+    draw(); render();
+    const cands = candidates(piece.type);
+    let d;
+    try { d = await decide(piece.type, cands); } catch (e) { return gameOver('Laya request failed: ' + e.message); }
+    if (!running || id !== game) return;
+    showDecision(d);
+    if (d.choice) applyChoice(d.choice);
+    while (fits(board, piece.cells, piece.x, piece.y + 1)) { piece.y++; draw(); await new Promise(r => setTimeout(r, 25)); }
+    lock(); draw(); render();
+  }
+}
+
+// Real-time mode: gravity never waits; Laya's answer moves the piece when it lands.
+function gravity() {
+  if (!piece) {
+    if (!spawn()) return gameOver('no room for the next piece');
+    const p = piece, id = game;
+    decide(p.type, candidates(p.type)).then(d => {
+      if (!running || id !== game) return;
+      showDecision(d);
+      if (piece !== p || !d.choice || !applyChoice(d.choice)) missed++; // too late: piece already locked or blocked
+      draw(); render();
+    }).catch(e => gameOver('Laya request failed: ' + e.message));
+  } else if (fits(board, piece.cells, piece.x, piece.y + 1)) {
+    piece.y++;
+  } else {
+    lock();
+  }
+  draw(); render();
+}
+
+function draw() {
+  ctx.fillStyle = '#1b1b1b'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = '#222';
+  for (let x = 1; x < W; x++) { ctx.beginPath(); ctx.moveTo(x * C, 0); ctx.lineTo(x * C, H * C); ctx.stroke(); }
+  board.forEach((row, y) => row.forEach((v, x) => { if (v) cell(x, y, v); }));
+  if (piece) {
+    // Ghost: where the piece would land from here.
+    const gy = dropY(board, piece.cells, piece.x);
+    if (gy !== null) { ctx.strokeStyle = target ? '#c0e700' : '#555'; ctx.lineWidth = 2;
+      piece.cells.forEach(([cx, cy]) => ctx.strokeRect((piece.x + cx) * C + 2, (gy + cy) * C + 2, C - 4, C - 4)); }
+    piece.cells.forEach(([cx, cy]) => cell(piece.x + cx, piece.y + cy, COLORS[piece.type]));
+  }
+}
+function cell(x, y, color) {
+  ctx.fillStyle = color; ctx.fillRect(x * C + 1, y * C + 1, C - 2, C - 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(x * C + 1, y * C + 1, C - 2, 4);
+}
+function render() {
+  let t = `mode ${modeIn.value}   score ${score}   lines ${lines}   pieces ${pieceNo}\n`;
+  if (modeIn.value === 'realtime') t += `missed decisions ${missed}\n`;
+  if (last) {
+    t += `\nlast Laya decision (${last.ms} ms, avg ${Math.round(totalMs / decisions)} ms, ${decisions} decisions):\n` +
+      `${last.choice ? last.choice.text : '?'}\n\n${Laya.probs(last.probabilities)}`;
+  } else t += '\nwaiting for the first Laya decision...';
+  log.textContent = t;
+}
+function gameOver(why) {
+  running = false; clearInterval(timer); timer = null;
+  log.textContent += '\n\nGAME OVER: ' + why;
+  $('go').textContent = 'Restart';
+  Laya.offerShare({ kicker: `Laya played Tetris on a phone (${modeIn.value} mode)`, big: `${lines} lines, ${score} points`, detail: `${pieceNo} pieces placed by an open AI model` });
+}
+$('go').onclick = () => {
+  try { localStorage.setItem('laya-tetris-mode', modeIn.value); } catch (e) {}
+  clearInterval(timer); timer = null;
+  board = emptyBoard(); piece = null; target = null; last = null;
+  pieceNo = 0; lines = 0; score = 0; decisions = 0; totalMs = 0; missed = 0;
+  running = true; game++;
+  draw(); render();
+  if (modeIn.value === 'realtime') timer = setInterval(gravity, +speedIn.value);
+  else stepLoop(game);
+};
+board = emptyBoard(); draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,117 @@
+<!doctype html>
+<!--
+  Anonymous hotline: type a dilemma, list your options, and a phone somewhere
+  in the Acurast network picks one. No account, no sign-up, requests are not
+  logged on the phone (access logs are off in serve.py).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laya Hotline · Acurast</title>
+<link rel="stylesheet" href="demos.css">
+<style>
+  #booth { display: block; width: 220px; image-rendering: pixelated; }
+  .answer { min-height: 120px; margin-top: 14px; padding: 16px; background: var(--panel); border: 2px solid var(--border); }
+  .answer .pick { font: 700 26px var(--pixel); color: var(--lime); margin: 6px 0; }
+  .promise { font-size: 13px; color: var(--muted); line-height: 1.6; margin-top: 10px; }
+  .promise b { color: var(--text); }
+  .ideas { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+  .ideas button { font-size: 10px; padding: 4px 8px; background: var(--panel); color: var(--text); box-shadow: none; border: 2px solid var(--border); }
+  .ideas button:hover { border-color: var(--lime); }
+  .bars { font: 12px/1.7 ui-monospace, monospace; margin-top: 8px; white-space: pre-wrap; color: #ccc; }
+  @media (max-width: 700px) { #booth { width: 140px; } .answer .pick { font-size: 20px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <canvas id="booth" width="110" height="170"></canvas>
+    <div class="promise">
+      <b>No account.</b> No sign-up, no email.<br>
+      <b>Not logged.</b> The phone keeps no request logs.<br>
+      <b>No data center.</b> A phone somewhere in the Acurast network answers.
+    </div>
+  </div>
+  <div class="side" style="max-width:560px">
+    <h3>Ask the phone, not Big Tech</h3>
+    <p class="muted">Stuck on a decision? Describe it. Give the options. A phone you'll never meet decides.</p>
+    <div class="ideas" id="ideas"></div>
+    <label>Your dilemma<textarea id="dilemma" rows="4" placeholder="I got a job offer in another city. More money, but all my friends are here..."></textarea></label>
+    <label>Options, one per line<textarea id="options" rows="4"></textarea></label>
+    <button id="ask">Call the hotline</button>
+    <div class="answer" id="answer"><span class="muted">The line is open.</span></div>
+  </div>
+</div>
+<script src="config.js"></script>
+<script src="laya.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const IDEAS = [
+  ['Job offer', 'I got a job offer in another city. More money and a better title, but all my friends and my partner are here.', 'Take the job\nStay where I am\nNegotiate remote work first'],
+  ['Text my ex?', 'My ex texted "hey, how are you?" after 8 months of silence. We broke up because they never made time for me.', 'Reply nicely\nIgnore it\nReply in a week'],
+  ['Adopt a dog', 'I work from home 3 days a week, live in a small flat without a garden and I have never had a dog.', 'Adopt a dog now\nWait until I have a garden\nFoster a dog first'],
+  ['Quit to travel', 'I have savings for 6 months. I am 29, tired of my job, and always wanted to travel through South America.', 'Quit and travel\nTake a 4-week sabbatical\nKeep working and save more'],
+  ['Pineapple pizza', 'Friends are coming over tonight and I have to order the pizza. Half of them are loud about pineapple.', 'Order pineapple pizza\nNo pineapple, ever\nOrder half and half'],
+];
+IDEAS.forEach(([label, d, o]) => {
+  const b = document.createElement('button'); b.textContent = label;
+  b.onclick = () => { $('dilemma').value = d; $('options').value = o; };
+  $('ideas').appendChild(b);
+});
+$('options').value = 'Do it\nDon\'t do it\nWait a week and decide then';
+
+// ---------------------------------------------------------------- pixel payphone
+const g = $('booth').getContext('2d');
+let ring = 0, ringTimer = null;
+function booth(state) { // idle | ringing | answered
+  g.fillStyle = '#0f0f0f'; g.fillRect(0, 0, 110, 170);
+  g.fillStyle = '#6e8902'; g.fillRect(10, 6, 90, 158);               // booth frame (lime dark)
+  g.fillStyle = '#c0e700'; g.fillRect(10, 6, 90, 14);                 // roof
+  g.fillStyle = '#0f0f0f'; g.font = '8px monospace'; g.fillText('HOTLINE', 36, 16);
+  g.fillStyle = '#1b2a2e'; g.fillRect(18, 26, 74, 130);               // glass
+  g.fillStyle = '#2f2f3d'; g.fillRect(40, 50, 32, 50);                // phone body
+  g.fillStyle = '#555'; for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) g.fillRect(45 + c * 8, 70 + r * 8, 6, 6);
+  g.fillStyle = state === 'answered' ? '#c0e700' : state === 'ringing' && ring % 2 ? '#ffd60a' : '#333';
+  g.fillRect(46, 55, 20, 8);                                          // display
+  const lift = state === 'answered' ? -10 : state === 'ringing' ? (ring % 2 ? -3 : 0) : 0;
+  g.fillStyle = '#111'; g.fillRect(30, 52 + lift, 8, 36);             // handset
+  g.fillStyle = '#444'; g.fillRect(37, 88, 2, 30); g.fillRect(37, 118, 20, 2); // cord
+  if (state === 'ringing') { g.fillStyle = '#ffd60a'; g.font = 'bold 10px monospace'; g.fillText(ring % 2 ? 'RING' : '', 70, 44); }
+}
+booth('idle');
+
+$('ask').onclick = async () => {
+  const dilemma = $('dilemma').value.trim();
+  const opts = $('options').value.split('\n').map(o => o.trim()).filter(Boolean).slice(0, 8);
+  if (!dilemma) { $('answer').innerHTML = '<span class="muted">Describe your dilemma first.</span>'; return; }
+  if (opts.length < 2) { $('answer').innerHTML = '<span class="muted">Give at least two options.</span>'; return; }
+  $('ask').disabled = true;
+  $('answer').innerHTML = '<span class="muted">Ringing a phone somewhere in the world...</span>';
+  clearInterval(ringTimer); ringTimer = setInterval(() => { ring++; booth('ringing'); }, 300);
+  const criteria = Object.fromEntries(opts.map((o, i) => ['option_' + (i + 1), o]));
+  try {
+    const { answers } = await Laya.ask(
+      { dilemma: dilemma.slice(0, 1200) },
+      { decision: { type: 'choice', instructions: 'Given `dilemma`, which option is the wisest choice for this person?', criteria } },
+    );
+    clearInterval(ringTimer); booth('answered');
+    const a = answers.decision, pick = criteria[a.choice], sure = Math.round((a.probabilities[a.choice] || 0) * 100);
+    const bars = Object.entries(a.probabilities).sort((x, y) => y[1] - x[1])
+      .map(([k, v]) => `${'█'.repeat(Math.round(v * 20)).padEnd(20, '░')} ${Math.round(v * 100).toString().padStart(3)}%  ${criteria[k]}`).join('\n');
+    const i = Laya.instance();
+    $('answer').innerHTML = `<div class="muted">The phone${i && i.country ? ' in ' + Laya.where().replace(/[&<>"']/g, '') : ''} says:</div><div class="pick"></div>
+      <div class="muted">${sure}% sure${sure < 50 ? ': a close call' : ''}</div><div class="bars"></div>`;
+    $('answer').querySelector('.pick').textContent = pick;
+    $('answer').querySelector('.bars').textContent = bars;
+    const el = $('answer'); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+    Laya.offerShare({ kicker: 'I asked an anonymous phone hotline: ' + dilemma, big: pick, detail: `${sure}% sure. No account, not logged.` }, $('answer'));
+  } catch (e) {
+    clearInterval(ringTimer); booth('idle');
+    $('answer').textContent = 'Nobody picked up: ' + e.message;
+  }
+  $('ask').disabled = false;
+};
+</script>
+</body>
+</html>

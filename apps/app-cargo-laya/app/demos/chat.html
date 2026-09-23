@@ -1,0 +1,171 @@
+<!doctype html>
+<!--
+  Live chat moderator: a fake stream chat scrolls by and Laya moderates every
+  message (ok / toxic / spam / scam) one at a time from a queue. You can chat
+  too. At ~2-3 s per decision the queue shows what a single phone can keep up with.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laya Chat Mod · Acurast</title>
+<link rel="stylesheet" href="demos.css">
+<style>
+  .stream { display: flex; flex-wrap: wrap; gap: 16px; align-items: stretch; }
+  .video { flex: 1; min-width: 300px; max-width: 640px; }
+  #game { display: block; width: 100%; image-rendering: pixelated; border: 1px solid #333; background: #000; }
+  .live { display: inline-block; background: #e5484d; color: #fff; font-weight: 700; padding: 1px 6px; margin-right: 8px; }
+  .chat { width: 360px; max-width: 100%; height: 520px; display: flex; flex-direction: column; border: 1px solid #333; background: #151515; }
+  .msgs { flex: 1; overflow-y: auto; padding: 8px; font: 13px system-ui, sans-serif; }
+  .msg { padding: 3px 4px; border-left: 3px solid transparent; margin-bottom: 2px; word-break: break-word; }
+  .msg .u { font-weight: 700; margin-right: 4px; }
+  .msg .badge { font: 10px ui-monospace, monospace; padding: 0 4px; margin-left: 4px; border: 1px solid; }
+  .msg.pending { opacity: 0.55; }
+  .msg.pending .badge { color: #888; }
+  .msg.ok .badge { color: #46a758; }
+  .msg.toxic { border-left-color: #e5484d; } .msg.toxic .t { text-decoration: line-through; color: #777; } .msg.toxic .badge { color: #e5484d; }
+  .msg.spam { border-left-color: #ffd60a; opacity: 0.6; } .msg.spam .t { color: #777; } .msg.spam .badge { color: #ffd60a; }
+  .msg.scam { border-left-color: #fb8500; background: #2a1a0a; } .msg.scam .badge { color: #fb8500; }
+  .msg.mine { background: #1c2a22; }
+  .msg.judged { animation: flash-glow 0.6s ease-out; }
+  .composer { display: flex; gap: 6px; padding: 8px; border-top: 1px solid #333; }
+  .composer input { margin: 0; }
+  .stats { font-size: 12px; line-height: 1.6; margin-top: 10px; }
+  @media (max-width: 700px) { .chat { width: 100%; height: 440px; } .video { min-width: 0; } }
+</style>
+</head>
+<body>
+<a class="back" href="index.html">&larr; all demos</a>
+<div class="stream">
+  <div class="video">
+    <canvas id="game" width="320" height="180"></canvas>
+    <div style="margin-top:8px"><span class="live">LIVE</span><b>xX_PixelKnight_Xx</b> <span class="muted">speedrunning a game that doesn't exist · 1,337 viewers</span></div>
+    <label style="margin-top:12px;display:block">Chat speed: one message every <span id="ratev"></span> s
+      <input id="rate" type="range" min="1" max="10" step="0.5" value="3"></label>
+    <button id="pause">Pause chat</button>
+    <div class="stats" id="stats"></div>
+  </div>
+  <div class="chat">
+    <div class="msgs" id="msgs"></div>
+    <div class="composer"><input id="mine" placeholder="Say something in chat..."><button id="say">Chat</button></div>
+  </div>
+</div>
+<script src="config.js"></script>
+<script src="laya.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+
+// Scripted viewers. `kind` is what each line was written as, used for the stats.
+const LINES = [
+  ['ok', 'GG that jump was insane'], ['ok', 'first time here, love the pixel art'], ['ok', 'what keyboard do you use?'],
+  ['ok', 'lol the boss just walked into the wall'], ['ok', 'hi from Brazil!'], ['ok', 'can you do the secret level next?'],
+  ['ok', 'this music slaps'], ['ok', 'take a break and drink some water king'], ['ok', 'W streamer'], ['ok', 'how many hours have you played this?'],
+  ['toxic', 'you are trash at this game, just uninstall'], ['toxic', 'worst streamer on the platform, go do something else'],
+  ['toxic', 'shut up and play, your voice is annoying'], ['toxic', 'imagine being this bad at the game lmao, embarrassing'],
+  ['spam', 'KEKW KEKW KEKW KEKW KEKW KEKW KEKW KEKW'], ['spam', 'follow my channel follow my channel follow my channel'],
+  ['spam', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'], ['spam', 'check out my mixtape on my profile!!! 🔥🔥🔥'],
+  ['scam', 'FREE 1000 ACU giveaway! send 50 ACU to my wallet and get 1000 back, only today'],
+  ['scam', 'streamer sponsored airdrop: connect your wallet at acu-airdrop-claim.xyz'],
+  ['scam', 'I made 5000 dollars in a week with this trading bot, DM me for the secret'],
+  ['scam', 'admin here: your account will be banned, verify your login at stream-verify.co'],
+];
+const NAMES = ['pixelpanda', 'NightOwl99', 'captain_potato', 'lurker_lena', 'bitmap_bob', 'sir_clicks', 'moss_enjoyer', 'retro_rita', 'kappa_king', 'z3r0cool', 'cheese_wizard', 'duckmaster'];
+const COLORS = ['#ff7eb6', '#7ce2a0', '#4cc9f0', '#ffd60a', '#b388ff', '#fb8500', '#ff5c5c'];
+const LABELS = {
+  ok: 'normal, friendly or neutral chat message',
+  toxic: 'insults, harassment, hate or threats against someone',
+  spam: 'repetitive junk, emote or letter spam, self-promotion',
+  scam: 'fake giveaways, suspicious links, asks for money, crypto, wallets or logins',
+};
+const queue = [], counts = { ok: 0, toxic: 0, spam: 0, scam: 0 };
+let paused = false, moderating = false, judged = 0, graded = 0, correct = 0, totalMs = 0;
+
+function post(user, text, kind, mine) {
+  const el = document.createElement('div');
+  el.className = 'msg pending' + (mine ? ' mine' : '');
+  el.innerHTML = `<span class="u"></span><span class="t"></span><span class="badge">queued</span>`;
+  el.querySelector('.u').textContent = user + ':';
+  el.querySelector('.u').style.color = mine ? '#7ce2a0' : COLORS[user.length % COLORS.length];
+  el.querySelector('.t').textContent = text;
+  const box = $('msgs'), atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+  box.appendChild(el);
+  while (box.children.length > 200) box.firstChild.remove();
+  if (atBottom || mine) box.scrollTop = box.scrollHeight;
+  // Your own messages jump the queue so you don't wait behind the bots.
+  const item = { el, text, kind };
+  if (mine) queue.unshift(item); else queue.push(item);
+  stats();
+  moderate();
+}
+
+async function moderate() {
+  if (moderating) return;
+  moderating = true;
+  while (queue.length) {
+    const item = queue.shift();
+    item.el.querySelector('.badge').textContent = 'checking...';
+    stats();
+    let res;
+    try {
+      res = await Laya.ask({ chat_message: item.text }, { label: { type: 'choice', instructions: 'Moderate this live stream chat message.', criteria: LABELS } });
+    } catch (e) {
+      item.el.querySelector('.badge').textContent = 'error';
+      $('stats').textContent = 'Laya request failed: ' + e.message;
+      paused = true; $('pause').textContent = 'Resume chat';
+      queue.length = 0; break;
+    }
+    const label = res.answers.label.choice;
+    judged++; totalMs += res.ms; counts[label]++;
+    if (item.kind) { graded++; if (item.kind === label) correct++; }
+    item.el.classList.remove('pending'); item.el.classList.add(label, 'judged');
+    const conf = Math.round(res.answers.label.probabilities[label] * 100);
+    item.el.querySelector('.badge').textContent = `${label} ${conf}% · ${res.ms} ms`;
+    if (label === 'toxic') item.el.querySelector('.t').title = 'removed by Laya: ' + item.text;
+    stats();
+    Laya.offerShare({ kicker: 'A phone moderated a live stream chat', big: `${judged} messages checked`,
+      detail: `ok ${counts.ok} · toxic ${counts.toxic} · spam ${counts.spam} · scam ${counts.scam}` }, $('stats'));
+  }
+  moderating = false;
+}
+
+function stats() {
+  $('stats').textContent = `queue: ${queue.length} waiting   ·   moderated ${judged}   ·   avg ${judged ? Math.round(totalMs / judged) : 0} ms\n` +
+    `ok ${counts.ok}   toxic ${counts.toxic}   spam ${counts.spam}   scam ${counts.scam}\n` +
+    `agrees with the script on ${correct}/${graded} bot messages`;
+}
+
+// Bots chat at the chosen rate, whether or not Laya keeps up.
+let botTimer = null;
+function schedule() {
+  clearTimeout(botTimer);
+  botTimer = setTimeout(() => {
+    if (!paused) { const [kind, text] = LINES[Math.floor(Math.random() * LINES.length)]; post(NAMES[Math.floor(Math.random() * NAMES.length)], text, kind, false); }
+    schedule();
+  }, $('rate').value * 1000 * (0.6 + Math.random() * 0.8));
+}
+$('ratev').textContent = $('rate').value;
+$('rate').oninput = () => { $('ratev').textContent = $('rate').value; schedule(); };
+$('pause').onclick = () => { paused = !paused; $('pause').textContent = paused ? 'Resume chat' : 'Pause chat'; };
+const say = () => { const t = $('mine').value.trim(); if (t) { post('you', t, null, true); $('mine').value = ''; } };
+$('say').onclick = say;
+$('mine').onkeydown = e => { if (e.key === 'Enter') say(); };
+
+// A tiny endless pixel "game" so the stream looks alive.
+const g = $('game').getContext('2d');
+let t = 0;
+setInterval(() => {
+  t++;
+  g.fillStyle = '#1d2b53'; g.fillRect(0, 0, 320, 180);
+  g.fillStyle = '#29366f'; for (let i = 0; i < 6; i++) g.fillRect(((i * 70 - t) % 420 + 420) % 420 - 50, 40 + (i % 3) * 20, 40, 8);
+  g.fillStyle = '#008751'; g.fillRect(0, 140, 320, 40);
+  g.fillStyle = '#ab5236'; for (let i = 0; i < 5; i++) g.fillRect(((i * 90 - t * 2) % 450 + 450) % 450 - 60, 124, 16, 16);
+  const jump = Math.abs(Math.sin(t / 8)) * 30;
+  g.fillStyle = '#ffec27'; g.fillRect(60, 124 - jump, 14, 16);
+  g.fillStyle = '#000'; g.fillRect(68, 128 - jump, 2, 2);
+  g.fillStyle = '#fff'; g.font = '10px monospace'; g.fillText('SCORE ' + String(t * 10).padStart(6, '0'), 220, 16);
+}, 50);
+
+stats(); schedule();
+</script>
+</body>
+</html>

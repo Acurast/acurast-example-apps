@@ -1,0 +1,297 @@
+<!doctype html>
+<!--
+  Snake, steered by Laya running on an Acurast processor.
+  Open this file in a browser, paste the deployment URL and LAYA_API_KEY, press Start.
+  Two modes:
+    step      - every Laya answer moves the snake one cell (the game waits for Laya).
+    real-time - the game runs at a fixed speed; since answers arrive seconds late,
+                Laya picks WHERE to turn ("keep going right until x=7, then turn up")
+                and the game executes the turn exactly at that cell.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laya Snake · Acurast</title>
+<link rel="stylesheet" href="demos.css">
+<style>
+  canvas { background: #181818; border: 2px solid var(--border); max-width: 100%; }
+  #log { white-space: pre-wrap; line-height: 1.55; margin-top: 12px; font: 13px/1.55 ui-monospace, monospace; }
+  .board { position: relative; align-self: flex-start; }
+  #arrow { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+           font-size: 160px; color: var(--lime); pointer-events: none; opacity: 0; }
+  /* Fired on every Laya answer. */
+  .flash canvas { animation: flash-border 0.6s ease-out; }
+  .flash #arrow { animation: flash-arrow 0.6s ease-out; }
+  @keyframes flash-border { from { box-shadow: 0 0 0 6px var(--lime), 0 0 40px var(--lime); } to { box-shadow: none; } }
+  @keyframes flash-arrow { from { opacity: 0.9; transform: scale(1.2); } to { opacity: 0; transform: scale(1); } }
+  @media (max-width: 700px) { #arrow { font-size: 90px; } }
+</style>
+</head>
+<body>
+<a class="back" href="index.html">&larr; all demos</a>
+<div class="wrap">
+  <div class="board" id="board"><canvas id="c" width="480" height="480"></canvas><div id="arrow"></div></div>
+  <div class="side">
+    <h3>Snake</h3>
+    <p class="muted">Every move decided by Laya on an Acurast phone.</p>
+    <label>Mode
+      <select id="mode">
+        <option value="step">step: every answer moves one cell</option>
+        <option value="realtime">real-time: fixed speed, Laya plans turn points</option>
+      </select>
+    </label>
+    <details><summary>Give Laya your own strategy</summary>
+      <label>Added to every question<input id="hint" placeholder="e.g. play it safe, stay away from walls"></label>
+    </details>
+    <label>Field size
+      <select id="size">
+        <option value="12">12 x 12</option>
+        <option value="24">24 x 24</option>
+        <option value="36">36 x 36</option>
+      </select>
+    </label>
+    <label id="speedrow">Speed: <span id="speedv"></span> ms per step<input id="speed" type="range" min="100" max="2000" step="50" value="500"></label>
+    <button id="go">Start</button>
+    <div id="log"></div>
+  </div>
+</div>
+<script src="config.js"></script>
+<script src="laya.js"></script>
+<script>
+// Field size is chosen in the UI. In real-time mode the snake covers ~9 cells
+// while each answer is on its way, so bigger fields leave more room to plan.
+let N = 12, S = 480 / N;
+const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+const ARROWS = { up: '↑', down: '↓', left: '←', right: '→' };
+const $ = id => document.getElementById(id);
+const ctx = $('c').getContext('2d');
+const log = $('log'), speedIn = $('speed'), modeIn = $('mode'), sizeIn = $('size');
+let snake, heading, food, score, moves, totalMs, missed, running = false;
+let timer = null, plan = null, last = null, game = 0;
+
+// Remember mode and size between visits (URL + key live in the gear settings, laya.js).
+try {
+  modeIn.value = localStorage.getItem('laya-mode') || 'step';
+  sizeIn.value = localStorage.getItem('laya-size') || '12';
+} catch (e) {}
+const applySize = () => { N = +sizeIn.value; S = 480 / N; };
+sizeIn.onchange = () => { if (!running) { applySize(); reset(); draw(); } };
+applySize();
+const showSpeed = () => { $('speedrow').style.display = modeIn.value === 'realtime' ? '' : 'none'; };
+$('speedv').textContent = speedIn.value;
+speedIn.oninput = () => { $('speedv').textContent = speedIn.value; if (running && timer) { clearInterval(timer); timer = setInterval(tick, +speedIn.value); } };
+modeIn.onchange = showSpeed;
+showSpeed();
+
+// ---------------------------------------------------------------- board
+function reset() {
+  const mid = N >> 1;
+  snake = [[3, mid], [2, mid], [1, mid]]; heading = 'right'; score = 0; moves = 0; totalMs = 0; missed = 0;
+  plan = null; last = null; placeFood();
+}
+function placeFood() {
+  do { food = [Math.floor(Math.random() * N), Math.floor(Math.random() * N)]; }
+  while (snake.some(([x, y]) => x === food[0] && y === food[1]));
+}
+const add = ([x, y], d, k = 1) => [x + DIRS[d][0] * k, y + DIRS[d][1] * k];
+const same = (a, b) => a[0] === b[0] && a[1] === b[1];
+function blocked([x, y]) {
+  // The tail cell frees up as the snake moves, so it does not count.
+  return x < 0 || y < 0 || x >= N || y >= N || snake.slice(0, -1).some(([a, b]) => a === x && b === y);
+}
+// Move one cell in `heading`; false (and game over) on a crash.
+function advance() {
+  const head = add(snake[0], heading);
+  if (blocked(head)) { gameOver('hit ' + (head.some(v => v < 0 || v >= N) ? 'the wall' : 'itself') + ' heading ' + heading); return false; }
+  snake.unshift(head);
+  if (same(head, food)) { score++; placeFood(); } else snake.pop();
+  return true;
+}
+function foodText() {
+  const [hx, hy] = snake[0], dx = food[0] - hx, dy = food[1] - hy, parts = [];
+  if (dx) parts.push(Math.abs(dx) + (dx > 0 ? ' cells right' : ' cells left'));
+  if (dy) parts.push(Math.abs(dy) + (dy > 0 ? ' cells down' : ' cells up'));
+  return 'the food is ' + parts.join(' and ');
+}
+
+// ---------------------------------------------------------------- Laya
+const withHint = text => { const h = $('hint').value.trim(); return h ? `${text} Player's strategy: ${h}` : text; };
+// One typed `choice` question; returns the chosen option id.
+async function ask(state, instructions, criteria) {
+  const t = performance.now();
+  const { url, key } = Laya.config();
+  const res = await fetch(url + '/v1/systemone?demo=snake', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key },
+    body: JSON.stringify({ state, questions: { q: { type: 'choice', instructions: withHint(instructions), criteria } } }),
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + (await res.text()));
+  const a = (await res.json()).answers.q;
+  const ms = Math.round(performance.now() - t);
+  moves++; totalMs += ms;
+  return { id: a.choice, probabilities: a.probabilities || {}, ms };
+}
+
+// ---------------------------------------------------------------- step mode
+// The game waits: every answer moves the snake exactly one cell.
+async function stepLoop(id) {
+  const DESCRIPTIONS = {
+    up: 'move up, toward the top edge', down: 'move down, toward the bottom edge',
+    left: 'move left, toward the left edge', right: 'move right, toward the right edge',
+  };
+  while (running && id === game) {
+    const [hx, hy] = snake[0];
+    const safe = Object.keys(DIRS).filter(d => !blocked(add(snake[0], d)));
+    if (!safe.length) return gameOver('trapped, no safe move');
+    const toward = safe.filter(d => { const [x, y] = add(snake[0], d); return Math.abs(x - food[0]) + Math.abs(y - food[1]) < Math.abs(hx - food[0]) + Math.abs(hy - food[1]); });
+    let d;
+    try {
+      d = await ask(
+        { food: foodText(), moves_toward_food: toward.length ? toward : ['none'], safe_moves: safe, current_heading: heading },
+        'The snake must eat the food. Which move brings it closer to the food? Prefer a move listed in `moves_toward_food`.',
+        Object.fromEntries(safe.map(m => [m, DESCRIPTIONS[m]])),
+      );
+    } catch (e) { return gameOver('Laya request failed: ' + e.message); }
+    if (!running || id !== game) return;
+    heading = d.id;
+    last = { ...d, text: DESCRIPTIONS[d.id] };
+    flash(d.id);
+    if (!advance()) return;
+    draw(); render();
+  }
+}
+
+// ---------------------------------------------------------------- real-time mode
+// Cells the snake covers while waiting for an answer, plus a margin.
+function lead() {
+  const avg = moves ? totalMs / moves : 4000;
+  return Math.ceil((avg * 1.3) / +speedIn.value) + 1;
+}
+// Signed distance from the head to cell c along the current heading.
+function along(c) {
+  const [hx, hy] = snake[0], [dx, dy] = DIRS[heading];
+  return (c[0] - hx) * dx + (c[1] - hy) * dy;
+}
+// Typed options: "keep going until <cell>, then turn <dir>", only for cells
+// still reachable when the answer arrives.
+function turnOptions() {
+  const head = snake[0], horizontal = heading === 'left' || heading === 'right';
+  const axis = horizontal ? 'x' : 'y', ai = horizontal ? 0 : 1;
+  let maxK = 0;
+  while (maxK < N && !blocked(add(head, heading, maxK + 1))) maxK++;
+  const kFood = along(food) > 0 ? Math.abs(food[ai] - head[ai]) : null;
+  const L = Math.min(lead(), maxK);
+  const ks = [...new Set([kFood, maxK, L].filter(k => k !== null && k >= Math.max(1, L) && k <= maxK))].sort((a, b) => a - b);
+  const opts = {};
+  if (kFood !== null && food[1 - ai] === head[1 - ai]) {
+    opts.straight = { straight: true, text: `keep going ${heading}, the food is straight ahead` };
+  }
+  for (const k of ks) {
+    const cell = add(head, heading, k);
+    for (const d of horizontal ? ['up', 'down'] : ['left', 'right']) {
+      if (blocked(add(cell, d))) continue;
+      const toFood = d === 'up' ? food[1] < cell[1] : d === 'down' ? food[1] > cell[1] : d === 'left' ? food[0] < cell[0] : food[0] > cell[0];
+      let text = `keep going ${heading} until ${axis}=${cell[ai]}, then turn ${d}`;
+      if (k === kFood) text += ', lining up with the food';
+      text += toFood ? ', turning toward the food' : ', turning away from the food';
+      if (k === maxK && k !== kFood) text += ' (last cell before the wall)';
+      opts[`${d}@${axis}=${cell[ai]}`] = { cell, dir: d, text };
+    }
+  }
+  return opts;
+}
+// Game loop: fixed speed, never waits for Laya. Turns happen exactly at the
+// planned cell; a plan whose cell is already behind the head is dropped.
+function tick() {
+  if (plan && same(snake[0], plan.cell)) { heading = plan.dir; plan = null; }
+  else if (plan && along(plan.cell) <= 0) { plan = null; missed++; }
+  if (!advance()) return;
+  draw(); render();
+}
+// Decision loop: asks for the next turn once the previous one has been executed.
+async function planLoop(id) {
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  while (running && id === game) {
+    if (plan) { await sleep(30); continue; }
+    const opts = turnOptions();
+    if (!Object.keys(opts).length) { await sleep(+speedIn.value); continue; }
+    let d;
+    try {
+      d = await ask(
+        { grid: `${N}x${N}, x grows to the right, y grows downward`, snake_head: `x=${snake[0][0]}, y=${snake[0][1]}`, heading, food: `x=${food[0]}, y=${food[1]}` },
+        'Plan the snake\'s next turn so it reaches the food without hitting a wall. Prefer the turn that lines up with the food and turns toward it.',
+        Object.fromEntries(Object.entries(opts).map(([k, o]) => [k, o.text])),
+      );
+    } catch (e) { return gameOver('Laya request failed: ' + e.message); }
+    if (!running || id !== game) return;
+    const o = opts[d.id];
+    last = { ...d, text: o ? o.text : d.id };
+    if (o && !o.straight) {
+      if (along(o.cell) >= 0) plan = { cell: o.cell, dir: o.dir };
+      else missed++; // answer came too late for that cell
+    }
+    flash(o && !o.straight ? o.dir : heading);
+    draw(); render();
+  }
+}
+
+// ---------------------------------------------------------------- UI
+function flash(dir) {
+  const board = $('board');
+  $('arrow').textContent = ARROWS[dir];
+  board.classList.remove('flash');
+  void board.offsetWidth; // restart the CSS animation
+  board.classList.add('flash');
+}
+function draw() {
+  ctx.fillStyle = '#1b1b1b'; ctx.fillRect(0, 0, 480, 480);
+  ctx.fillStyle = '#e5484d'; ctx.fillRect(food[0] * S + 2, food[1] * S + 2, S - 4, S - 4);
+  snake.forEach(([x, y], i) => { ctx.fillStyle = i ? '#46a758' : '#7ce2a0'; ctx.fillRect(x * S + 1, y * S + 1, S - 2, S - 2); });
+  // Real-time mode: the planned turn cell, with the direction to turn.
+  if (plan) {
+    const [x, y] = plan.cell;
+    ctx.strokeStyle = '#c0e700'; ctx.lineWidth = 3;
+    ctx.strokeRect(x * S + 1.5, y * S + 1.5, S - 3, S - 3);
+    ctx.fillStyle = '#c0e700'; ctx.font = `${Math.round(S * 0.7)}px sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(ARROWS[plan.dir], x * S + S / 2, y * S + S / 2);
+  }
+}
+function render() {
+  let text = `mode ${modeIn.value}   score ${score}   length ${snake.length}   heading ${heading}\n` +
+    `head x=${snake[0][0]} y=${snake[0][1]}   food x=${food[0]} y=${food[1]}\n`;
+  if (modeIn.value === 'realtime') text += `lead ${lead()} cells   missed turns ${missed}\n`;
+  if (plan) text += `planned: turn ${plan.dir} at x=${plan.cell[0]} y=${plan.cell[1]}\n`;
+  if (last) {
+    const probs = Object.entries(last.probabilities).sort((a, b) => b[1] - a[1]).map(([k, v]) => v.toFixed(3) + '  ' + k).join('\n');
+    text += `\nlast Laya decision (${last.ms} ms, avg ${Math.round(totalMs / moves)} ms, ${moves} decisions):\n${last.text}\n\n${probs}`;
+  } else {
+    text += '\nwaiting for the first Laya decision...';
+  }
+  log.textContent = text;
+}
+function gameOver(why) {
+  running = false; clearInterval(timer); timer = null;
+  log.textContent += '\n\nGAME OVER: ' + why;
+  $('go').textContent = 'Restart';
+  Laya.offerShare({ kicker: `Laya played Snake on a phone (${modeIn.value} mode, ${N}x${N})`, big: `Score ${score}`, detail: `${moves} decisions, then: ${why}` });
+}
+
+$('go').onclick = () => {
+  if (!Laya.config().url || !Laya.config().key) { log.textContent = 'Set the deployment URL and API key under the gear (top right).'; return; }
+  try {
+    localStorage.setItem('laya-mode', modeIn.value);
+    localStorage.setItem('laya-size', sizeIn.value);
+  } catch (e) {}
+  applySize();
+  clearInterval(timer); timer = null;
+  reset(); draw(); running = true; game++;
+  render();
+  if (modeIn.value === 'realtime') { timer = setInterval(tick, +speedIn.value); planLoop(game); }
+  else stepLoop(game);
+};
+reset(); draw();
+</script>
+</body>
+</html>
