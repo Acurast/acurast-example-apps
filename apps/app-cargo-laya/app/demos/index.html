@@ -1,0 +1,84 @@
+<!doctype html>
+<!-- Gallery of small demos that use Laya (on an Acurast processor) for decisions. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laya Demos · Acurast</title>
+<link rel="stylesheet" href="demos.css">
+<style>
+  .hero { max-width: 820px; margin: 10px 0 8px; }
+  .hero h1 { font-size: clamp(26px, 5vw, 44px); line-height: 1.1; margin-bottom: 14px; }
+  .hero h1 span { color: var(--lime); }
+  .intro { max-width: 760px; line-height: 1.6; color: #cfcfcf; }
+  .grid { margin-top: 24px; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 18px; }
+  .card { display: block; padding: 18px; border: 2px solid var(--border); background: var(--panel); color: var(--text); text-decoration: none;
+          box-shadow: 4px 4px 0 #000; transition: transform 0.08s, box-shadow 0.08s, border-color 0.08s; }
+  .card:hover { border-color: var(--lime); transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--lime-dark); }
+  .card .icon { font-size: 38px; line-height: 1; margin-bottom: 12px; }
+  .card h2 { font-size: 15px; margin-bottom: 8px; color: var(--lime); }
+  .card p { margin: 0; color: var(--muted); line-height: 1.5; font-size: 14px; }
+  @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="hero"><h1>Decisions, <span>decentralized.</span></h1></div>
+<p class="intro">
+  Every decision below comes from <a href="https://huggingface.co/convaiinnovations/laya">Laya</a>, an open
+  "System 1" decision model. It doesn't write text: it picks one of the typed options each demo offers.
+  The model runs on an Android phone in the Acurast network (CPU only, about 2-4 s per decision).
+</p>
+
+
+<div class="grid">
+  <a class="card" href="snake.html">
+    <div class="icon">🐍</div>
+    <h2>Snake</h2>
+    <p>Laya steers. Step mode waits for every move; real-time mode picks turn points by coordinate. Give it your own strategy.</p>
+  </a>
+  <a class="card" href="tetris.html">
+    <div class="icon">🧱</div>
+    <h2>Tetris</h2>
+    <p>For each piece Laya picks a placement from the best candidates: rotation, column, lines, holes. Give it your own strategy.</p>
+  </a>
+  <a class="card" href="spam.html">
+    <div class="icon">📮</div>
+    <h2>Mail sorter</h2>
+    <p>The postman drops off a bag of mail. Laya opens one letter after another: inbox, spam or phishing. Write your own letter and see where it lands.</p>
+  </a>
+  <a class="card" href="tinder.html">
+    <div class="icon">💘</div>
+    <h2>Swipe for me</h2>
+    <p>Write what you look for in a partner for life. Laya swipes through strange pixel profiles (history's oddest included). Add your own profile.</p>
+  </a>
+  <a class="card" href="newsroom.html">
+    <div class="icon">📰</div>
+    <h2>Newsroom</h2>
+    <p>Headlines off the printing press: news, satire, clickbait or manipulation? Laya judges the writing, not the facts. Real RSS feeds, your own categories, your own headline.</p>
+  </a>
+  <a class="card" href="guard.html">
+    <div class="icon">🛡️</div>
+    <h2>Jailbreak the guard</h2>
+    <p>Laya guards an AI assistant against prompt injection. Write your own sneaky prompt and try to get past.</p>
+  </a>
+  <a class="card" href="chat.html">
+    <div class="icon">💬</div>
+    <h2>Live chat moderator</h2>
+    <p>A stream chat scrolls by, Laya flags toxic, spam and scam messages from a live queue. Chat along yourself.</p>
+  </a>
+  <a class="card" href="hotline.html">
+    <div class="icon">☎️</div>
+    <h2>Anonymous hotline</h2>
+    <p>Stuck on a decision? Describe it, list your options, and a phone you'll never meet decides. No account, not logged.</p>
+  </a>
+  <a class="card" href="api.html">
+    <div class="icon">⚡</div>
+    <h2>API</h2>
+    <p>Use this phone for your own decisions: one HTTP call. curl, JavaScript and Python examples, a live playground and llms.txt for AI agents.</p>
+  </a>
+</div>
+
+<script src="config.js"></script>
+<script src="laya.js"></script>
+</body>
+</html>

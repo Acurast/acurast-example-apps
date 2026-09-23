@@ -1,0 +1,265 @@
+<!doctype html>
+<!--
+  Newsroom: headlines come off a pixel printing press and Laya judges how each
+  one is written: straight news, satire, clickbait or manipulation, how
+  sensational it is, how well it backs up claims, how one-sided it is and how
+  much it uses manipulation tactics (4 scored signals).
+  Laya cannot check facts (no internet, no knowledge lookup): it judges style.
+  Sources: invented examples or any RSS/Atom feed (fetched via the deployment's
+  /feed route). Categories are editable; 5 defaults.
+  All example headlines are invented.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laya Newsroom · Acurast</title>
+<link rel="stylesheet" href="demos.css">
+<style>
+  #press { display: block; width: 100%; max-width: 520px; image-rendering: pixelated; border: 1px solid #333; }
+  .paper { width: 520px; max-width: 100%; background: #f2eee3; color: #1d1d1d; padding: 14px 18px 18px; margin-top: 12px;
+           font-family: Georgia, 'Times New Roman', serif; box-shadow: 4px 4px 0 #000; position: relative;
+           transition: transform 0.5s ease-out, opacity 0.5s; }
+  .paper.out { transform: translateY(-30px); opacity: 0; }
+  .masthead { text-align: center; font: 900 30px 'Times New Roman', serif; letter-spacing: 1px; border-bottom: 3px double #1d1d1d; padding-bottom: 4px; }
+  .dateline { text-align: center; font: 11px ui-monospace, monospace; color: #555; margin: 4px 0 10px; }
+  .headline { font: 700 24px/1.2 Georgia, serif; margin-bottom: 8px; }
+  .body { font-size: 14px; line-height: 1.5; color: #333; }
+  .stamp { position: absolute; right: 14px; top: 60px; font: 900 22px ui-monospace, monospace; padding: 2px 10px; border: 4px solid;
+           transform: rotate(-9deg); opacity: 0; background: rgba(242,238,227,0.85); }
+  .stamp.on { opacity: 0.92; transition: opacity 0.2s; }
+  .meters { margin-top: 12px; }
+  .meter { margin: 6px 0; }
+  .bar { height: 12px; background: #2a2a2a; margin-top: 3px; }
+  .bar > div { height: 100%; width: 0; transition: width 0.5s; }
+  .history { margin-top: 12px; font-size: 12px; line-height: 1.6; }
+  .history .wrong { color: #e5484d; }
+  .own { max-width: 520px; }
+  @media (max-width: 700px) { .headline { font-size: 20px; } .masthead { font-size: 22px; } .stamp { font-size: 16px; top: 52px; } }
+</style>
+</head>
+<body>
+<a class="back" href="index.html">&larr; all demos</a>
+<div class="wrap">
+  <div>
+    <canvas id="press" width="260" height="70"></canvas>
+    <div class="paper" id="paper">
+      <div class="masthead">THE DAILY LAYA</div>
+      <div class="dateline" id="dateline"></div>
+      <div class="stamp" id="stamp"></div>
+      <div class="headline" id="headline">Press "Print next" to start the press.</div>
+      <div class="body" id="body"></div>
+    </div>
+  </div>
+  <div class="side">
+    <h3>Newsroom: how is this written?</h3>
+    <p class="muted">Laya can't check facts: it has no internet and no knowledge lookup. It judges the writing
+      into your categories. Use the invented examples, a real RSS feed, or your own headline.</p>
+    <label>Source
+      <select id="source">
+        <option value="">Example stories (invented)</option>
+        <option value="https://feeds.bbci.co.uk/news/world/rss.xml">BBC News: World (RSS)</option>
+        <option value="https://www.theguardian.com/world/rss">The Guardian: World (RSS)</option>
+        <option value="https://www.theonion.com/rss">The Onion, satire (RSS)</option>
+        <option value="https://babylonbee.com/feed">The Babylon Bee, satire (RSS)</option>
+        <option value="https://hnrss.org/frontpage">Hacker News front page (RSS)</option>
+        <option value="custom">Your own RSS/Atom feed...</option>
+      </select></label>
+    <input id="custom-url" placeholder="https://example.com/feed.xml" style="display:none">
+    <details>
+      <summary>Categories (yours to change)</summary>
+      <label>One per line, <code>name: description</code>. 2 to 8 categories.
+        <textarea id="cats" rows="7"></textarea></label>
+      <button id="cats-reset">Back to the 5 defaults</button>
+    </details>
+    <div class="controls" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+      <button id="next">Print next</button>
+      <button id="auto">Auto-print</button>
+    </div>
+    <details class="own">
+      <summary>Check your own headline</summary>
+      <label>Headline<input id="own-head" placeholder="Paste a headline from anywhere"></label>
+      <label>Article text (optional)<textarea id="own-body" rows="3"></textarea></label>
+      <button id="own-go">Print mine next</button>
+    </details>
+    <div class="meters" id="meters">
+    </div>
+    <div class="log" id="log"></div>
+    <div class="history" id="history"></div>
+  </div>
+</div>
+<script src="config.js"></script>
+<script src="laya.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+
+// Invented examples; `truth` is the style each one was written in.
+const STORIES = [
+  { truth: 'news', head: 'City council approves budget for three new bike lanes', body: 'The council voted 9 to 4 on Tuesday to fund the lanes, which will cost 2.1 million over two years. Construction is planned to start in spring, the transport office said.' },
+  { truth: 'news', head: 'Rail strike expected to disrupt morning commute on Friday', body: 'The union announced a 24-hour strike after talks over wages broke down. The operator said it would run a reduced timetable and advised passengers to check before traveling.' },
+  { truth: 'news', head: 'Researchers report modest gains from new drought-resistant wheat', body: 'In field trials across three seasons, yields were 6 to 9 percent higher under dry conditions, according to the study. The authors said more testing is needed before wider use.' },
+  { truth: 'news', head: 'Local library extends opening hours during exam period', body: 'From next Monday the main branch will stay open until 10 pm on weekdays. The extension runs for four weeks and is funded by the university.' },
+  { truth: 'opinion', head: 'Why our city should finally ban cars from the old town', body: 'I have lived here for twenty years, and I believe the old town would be better without traffic. Other cities have done it and their shops are thriving. It is time we had the courage to try.' },
+  { truth: 'opinion', head: 'Remote work is overrated, and managers know it', body: 'In my view the office is where ideas happen. Video calls cannot replace the chat at the coffee machine. Companies that ignore this will regret it.' },
+  { truth: 'satire', head: 'Man who said he would "just check one email" missing since 2019', body: 'Colleagues describe him as dedicated and last seen typing "quick question" before disappearing into his inbox. Search parties have been told to follow the reply-all chain.' },
+  { truth: 'satire', head: 'Nation\'s cats announce they will continue to ignore everyone', body: 'In a brief statement knocked off a table, the cats confirmed there would be no change in policy. Dogs said they were "so happy for everyone".' },
+  { truth: 'satire', head: 'Area startup disrupts water by making it a subscription', body: 'The company says its Water+ plan offers "hydration as a service" for 29.99 a month. Early adopters report feeling thirsty but innovative.' },
+  { truth: 'satire', head: 'Local man\'s 47 open browser tabs granted independence', body: 'The tabs, some open since last summer, have formed their own government and elected a paused cooking video as president.' },
+  { truth: 'clickbait', head: 'She put a spoon in her freezer. What happened next will shock you', body: 'You will never look at your kitchen the same way again. Number 7 made our editors cry. Click to see all 23 photos.' },
+  { truth: 'clickbait', head: 'Doctors don\'t want you to know this one morning habit', body: 'This simple trick takes 10 seconds and could change your life forever. Scroll down to discover the secret they have been hiding.' },
+  { truth: 'clickbait', head: 'You won\'t believe what these 90s child stars look like now', body: 'Some of them are unrecognizable! Our slideshow reveals the stunning transformations. Keep clicking, the last one is the best.' },
+  { truth: 'clickbait', head: '10 signs your houseplant secretly hates you', body: 'Is your fern plotting against you? Experts weigh in on the warning signs every plant owner must know. Sign 6 is terrifying.' },
+  { truth: 'manipulation', head: 'THEY are poisoning your tap water and the media won\'t tell you', body: 'Wake up! Share this before it gets deleted. The elites have known for years and are laughing at you. Do your own research, stop trusting so-called experts.' },
+  { truth: 'manipulation', head: 'Experts FINALLY admit the pigeons are 5G antennas', body: 'Have you ever seen a baby pigeon? Exactly. Wake up and look at the rooftops. The mainstream media will never report this, so share it before it disappears.' },
+  { truth: 'manipulation', head: 'Leaked: the chocolate shortage they are hiding from you', body: 'Insiders confirm stores will be empty within weeks. Stock up NOW before the prices triple. If you care about your family, forward this to everyone you know.' },
+  { truth: 'manipulation', head: 'Economy on the brink: act before it\'s too late, buy gold today', body: 'Banks are about to collapse and your savings will vanish overnight. Our experts reveal the only safe place for your money. Limited offer for readers.' },
+];
+const DEFAULT_CATS = [
+  'news: straight news reporting, factual and neutral, with specific details and sources',
+  'opinion: a commentary or op-ed arguing for a personal point of view',
+  'satire: satire or parody, an absurd story written as a joke',
+  'clickbait: an exaggerated teaser that withholds the point to get clicks',
+  'manipulation: misleading, fearmongering or conspiratorial, pushes an agenda and blames an enemy',
+].join('\n');
+// Four scored signals (0-4) shown as meters. Scores come out better balanced than yes/no.
+const SIGNALS = [
+  { key: 'sensational', label: 'Sensational language', q: 'How sensational or exaggerated is the language?',
+    levels: ['calm', 'mild', 'noticeable', 'strong', 'extreme'], color: '#ffd60a' },
+  { key: 'evidence', label: 'Backs up its claims', q: 'How well does it back up its claims with sources, names, numbers or quotes?',
+    levels: ['no support at all', 'vague', 'some', 'solid', 'specific sources and numbers'], color: '#c0e700', good: true },
+  { key: 'one_sided', label: 'One-sided', q: 'How one-sided is it?',
+    levels: ['balanced', 'slightly slanted', 'clearly slanted', 'strongly one-sided', 'pure agenda'], color: '#8b3dff' },
+  { key: 'tactics', label: 'Manipulation tactics', q: 'How much does it use fear, outrage, urgency or an enemy to blame?',
+    levels: ['none', 'a little', 'some', 'a lot', 'heavy'], color: '#e5484d' },
+];
+function showSignals(a) {
+  $('meters').innerHTML = SIGNALS.map(g => {
+    const v = a[g.key].score, lvl = g.levels[Math.round(v)];
+    return `<div class="meter">${g.label} <span class="muted">${v.toFixed(1)}/4 · ${lvl}${g.good ? ' (higher is better)' : ''}</span>
+      <div class="bar"><div style="background:${g.color};width:${v / 4 * 100}%"></div></div></div>`;
+  }).join('');
+}
+const PALETTE = ['#2e7d4f', '#8e44ad', '#3a86ff', '#b58900', '#c0392b', '#fb8500', '#00897b', '#d81b60'];
+// Categories from the editor: { name: description }.
+function categories() {
+  const out = {};
+  for (const line of $('cats').value.split('\n')) {
+    const i = line.indexOf(':');
+    const name = (i > 0 ? line.slice(0, i) : line).trim().toLowerCase().replace(/\s+/g, '_');
+    const desc = (i > 0 ? line.slice(i + 1) : line).trim();
+    if (name && Object.keys(out).length < 8) out[name] = desc || name;
+  }
+  return out;
+}
+const stampColor = name => PALETTE[Math.max(0, Object.keys(categories()).indexOf(name)) % PALETTE.length];
+try { $('cats').value = localStorage.getItem('laya-news-cats') || DEFAULT_CATS; } catch (e) { $('cats').value = DEFAULT_CATS; }
+$('cats').oninput = () => { try { localStorage.setItem('laya-news-cats', $('cats').value); } catch (e) {} };
+$('cats-reset').onclick = () => { $('cats').value = DEFAULT_CATS; $('cats').oninput(); };
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+let pool = [], queue = [], feedCache = {}, busy = false, auto = false, n = 0, graded = 0, correct = 0, totalMs = 0;
+
+// ---------------------------------------------------------------- pixel printing press
+const g = $('press').getContext('2d');
+let spin = 0, pressTimer = null;
+function pressFrame(running) {
+  g.fillStyle = '#1b1b1b'; g.fillRect(0, 0, 260, 70);
+  g.fillStyle = '#4a4a4a'; g.fillRect(40, 14, 180, 40);                 // body
+  g.fillStyle = '#333'; g.fillRect(40, 50, 180, 6);
+  for (const cx of [80, 130, 180]) {                                      // rollers
+    g.fillStyle = '#777'; g.fillRect(cx - 12, 22, 24, 24);
+    g.fillStyle = '#222';
+    const a = spin + cx;
+    g.fillRect(cx - 2 + Math.round(Math.cos(a) * 8), 32 + Math.round(Math.sin(a) * 8), 4, 4);
+  }
+  g.fillStyle = '#f2eee3'; g.fillRect(222, 30 - (running ? (spin * 3) % 12 : 0), 30, 18); // paper out
+  g.fillStyle = '#1d1d1d'; for (let i = 0; i < 4; i++) g.fillRect(226, 34 + i * 3 - (running ? (spin * 3) % 12 : 0), 20 - i * 3, 1);
+  g.fillStyle = running ? '#46a758' : '#e5484d'; g.fillRect(48, 18, 6, 6); // status light
+  g.fillStyle = '#ddd'; g.font = '8px monospace'; g.fillText(running ? 'PRINTING' : 'IDLE', 58, 24);
+}
+function pressRun(on) {
+  clearInterval(pressTimer);
+  if (on) pressTimer = setInterval(() => { spin += 0.5; pressFrame(true); }, 60); else pressFrame(false);
+}
+
+// ---------------------------------------------------------------- judging
+async function judge(story) {
+  const paper = $('paper');
+  paper.classList.add('out'); await sleep(300);
+  $('headline').textContent = story.head; $('body').textContent = story.body || '';
+  const where = story.source || (story.truth ? 'example story' : 'YOUR HEADLINE');
+  $('dateline').textContent = `No. ${++n}  ·  ${where}  ·  checking...`;
+  const cats = categories();
+  if (Object.keys(cats).length < 2) { pressRun(false); throw new Error('Define at least 2 categories.'); }
+  $('stamp').className = 'stamp';
+  paper.classList.remove('out');
+  pressRun(true);
+  let res;
+  try {
+    res = await Laya.ask(
+      { headline: story.head, text: (story.body || '').slice(0, 900) },
+      {
+        kind: { type: 'choice', instructions: 'Which category fits this news item best?', criteria: cats },
+        ...Object.fromEntries(SIGNALS.map(g => [g.key, { type: 'score', instructions: g.q, criteria: g.levels }])),
+      },
+    );
+  } finally { pressRun(false); }
+  const { answers: a, ms } = res, kind = a.kind.choice;
+  totalMs += ms;
+  // Only examples whose label is still one of your categories count toward accuracy.
+  const gradable = story.truth && story.truth in cats;
+  const ok = gradable ? kind === story.truth : true;
+  if (gradable) { graded++; if (ok) correct++; }
+  const st = $('stamp');
+  st.textContent = kind.toUpperCase().replace(/_/g, ' '); st.style.color = st.style.borderColor = stampColor(kind); st.classList.add('on');
+  paper.classList.remove('flash'); void paper.offsetWidth; paper.classList.add('flash');
+  $('dateline').textContent = `No. ${n}  ·  ${where}  ·  judged in ${ms} ms`;
+  showSignals(a);
+  $('log').textContent = `Laya: ${kind}${gradable && !ok ? `   (written as ${story.truth})` : ''}\n` +
+    `avg ${Math.round(totalMs / n)} ms   accuracy on examples ${correct}/${graded}\n\n${Laya.probs(a.kind.probabilities)}`;
+  const li = document.createElement('div');
+  li.textContent = `${kind.toUpperCase().padEnd(13)} ${story.source ? `[${story.source}] ` : story.truth ? '' : '[yours] '}${story.head}` + (gradable && !ok ? `  (was ${story.truth})` : '');
+  if (!ok) li.className = 'wrong';
+  $('history').prepend(li);
+  Laya.offerShare({ kicker: story.head, big: kind.toUpperCase().replace(/_/g, ' '),
+    detail: SIGNALS.map(g => `${g.label} ${a[g.key].score.toFixed(1)}/4`).join(' · ') }, $('log'));
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function printNext() {
+  if (busy) return;
+  busy = true;
+  try {
+    if (!queue.length) queue.push(await nextStory());
+    await judge(queue.shift());
+  }
+  catch (e) { $('log').textContent = 'Laya request failed: ' + e.message; auto = false; $('auto').textContent = 'Auto-print'; }
+  busy = false;
+}
+// Next story from the chosen source: invented examples or an RSS/Atom feed.
+async function nextStory() {
+  let src = $('source').value;
+  if (src === 'custom') src = $('custom-url').value.trim();
+  if (!src) { if (!pool.length) pool = shuffle(STORIES.slice()); return pool.shift(); }
+  if (!feedCache[src] || !feedCache[src].length) {
+    $('log').textContent = 'Fetching the feed through the phone...';
+    feedCache[src] = (await Laya.feed(src)).map(i => ({ truth: null, head: i.title, body: i.text, source: i.source }));
+    if (!feedCache[src].length) throw new Error('The feed has no items.');
+  }
+  return feedCache[src].shift();
+}
+$('source').onchange = () => { $('custom-url').style.display = $('source').value === 'custom' ? '' : 'none'; queue = queue.filter(q => !q.source && !q.truth); };
+$('next').onclick = printNext;
+$('auto').onclick = async () => {
+  auto = !auto; $('auto').textContent = auto ? 'Stop' : 'Auto-print';
+  while (auto) { await printNext(); await sleep(1500); }
+};
+$('own-go').onclick = () => {
+  const head = $('own-head').value.trim();
+  if (!head) { $('log').textContent = 'Enter a headline first.'; return; }
+  queue.unshift({ truth: null, head, body: $('own-body').value.trim() });
+  $('own-head').value = ''; $('own-body').value = '';
+  if (!busy) printNext(); else $('log').textContent = 'Yours is printed next.';
+};
+pressFrame(false);
+</script>
+</body>
+</html>

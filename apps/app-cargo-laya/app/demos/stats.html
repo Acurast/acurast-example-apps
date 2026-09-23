@@ -1,0 +1,71 @@
+<!doctype html>
+<!--
+  Live stats for this instance: aggregate counters from GET /stats.
+  No IPs, no IDs, no cookies: only counts per event and page.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laya Stats · Acurast</title>
+<link rel="stylesheet" href="demos.css">
+<style>
+  main { max-width: 820px; }
+  .big { font: 700 clamp(40px, 9vw, 72px) var(--pixel); color: var(--lime); line-height: 1; margin: 6px 0 4px; }
+  .row { display: grid; grid-template-columns: 110px 1fr 70px; gap: 10px; align-items: center; margin: 6px 0; font-size: 14px; }
+  .bar { height: 14px; background: var(--panel-2); }
+  .bar > div { height: 100%; background: var(--lime); }
+  .num { text-align: right; font-family: ui-monospace, monospace; }
+  section { margin: 26px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border: 2px solid var(--panel-2); padding: 6px 8px; text-align: left; }
+  th { font: 11px var(--pixel); color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Live stats</h1>
+  <p class="muted">Counted on the phone serving this page. Only totals: no IP addresses, no IDs, no cookies.</p>
+  <section>
+    <div class="muted">Decisions made on this phone</div>
+    <div class="big" id="total">…</div>
+    <div class="muted" id="since"></div>
+  </section>
+  <section>
+    <h3>Decisions per demo</h3>
+    <div id="per-demo"></div>
+  </section>
+  <section>
+    <h3>Page events</h3>
+    <div style="overflow-x:auto"><table id="events"></table></div>
+  </section>
+</main>
+<script src="config.js"></script>
+<script src="laya.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+// Event and page names come from visitors: always escape before putting them in HTML.
+const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+async function load() {
+  const { url } = Laya.config();
+  let s;
+  try { s = await (await fetch((url || location.origin) + '/stats')).json(); } catch (e) { $('total').textContent = 'offline'; return; }
+  $('total').textContent = s.decisions.toLocaleString();
+  const h = Math.floor(s.uptime_s / 3600), m = Math.floor(s.uptime_s / 60) % 60;
+  $('since').textContent = `in the last ${h} h ${m} min` + (s.instance.country ? `, on a ${s.instance.chip || 'phone'} in ${s.instance.country}` : ''); // textContent: safe
+  const per = Object.entries(s.events.decision || {}).sort((a, b) => b[1] - a[1]);
+  const max = Math.max(1, ...per.map(p => p[1]));
+  $('per-demo').innerHTML = per.length ? per.map(([k, v]) =>
+    `<div class="row"><div>${esc(k)}</div><div class="bar"><div style="width:${v / max * 100}%"></div></div><div class="num">${v.toLocaleString()}</div></div>`).join('')
+    : '<p class="muted">No decisions yet.</p>';
+  const events = Object.entries(s.events).filter(([e]) => e !== 'decision');
+  const pages = [...new Set(events.flatMap(([, p]) => Object.keys(p)))].sort();
+  $('events').innerHTML = events.length
+    ? `<tr><th>event</th>${pages.map(p => `<th>${esc(p)}</th>`).join('')}</tr>` +
+      events.map(([e, p]) => `<tr><td>${esc(e)}</td>${pages.map(pg => `<td class="num">${p[pg] || ''}</td>`).join('')}</tr>`).join('')
+    : '<tr><td class="muted">No events yet.</td></tr>';
+}
+load(); setInterval(load, 15000);
+</script>
+</body>
+</html>
