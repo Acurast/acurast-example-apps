@@ -22,6 +22,7 @@ import os
 import socket
 import threading
 import time
+import traceback
 import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -329,6 +330,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError as e:  # question validation errors name the question and what to fix
             raise HTTPError(422, str(e))
         except Exception:  # noqa: BLE001 -- never leak paths/weights/OOM text to clients
+            traceback.print_exc()  # the phone's log only
             raise HTTPError(500, "inference failed")
         DECISIONS["count"] += 1
         _count("decision", q.get("demo") or "api")

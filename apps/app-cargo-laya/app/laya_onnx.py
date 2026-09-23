@@ -197,7 +197,9 @@ class Laya:
                 raise ValueError("question %r options exceed head_max_len" % (qid,))
             items.append((seq, markers, QTYPES[q["t"]]))
 
-        n, L, K = len(items), max(len(s) for s, _, _ in items), max(len(m) for _, m, _ in items)
+        # K >= 2: the exported act head takes the top-2 option probabilities (laya pads a lone
+        # option with 0; a masked second slot gives the same). Else 1-option questions fail.
+        n, L, K = len(items), max(len(s) for s, _, _ in items), max(2, max(len(m) for _, m, _ in items))
         inp = {"input_ids": np.full((n, L), self.pad, np.int64), "attention_mask": np.zeros((n, L), np.int64),
                "marker_pos": np.zeros((n, K), np.int64), "marker_mask": np.zeros((n, K), bool),
                "qtype": np.array([t for _, _, t in items], np.int64)}

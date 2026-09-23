@@ -37,6 +37,8 @@ QUESTIONS = {
     "urgency": {"type": "score", "instructions": "How much pressure does the sender put on the reader?",
                 "criteria": ["none", "low", "medium", "high", "extreme"]},
     "link": {"type": "noul", "instructions": "The email asks the reader to click a link."},
+    # One option: the act head's top-2 must still work (laya_onnx pads the option axis).
+    "only": {"type": "choice", "instructions": "Which folder?", "criteria": ["spam"]},
 }
 
 agent = Agent(src, device="cpu")
@@ -79,8 +81,9 @@ ref = agent.system_one(STATE, QUESTIONS)
 got = Laya(out).predict(STATE, QUESTIONS)
 assert ref["usage"] == got["usage"], (ref["usage"], got["usage"])
 for qid, a in ref["answers"].items():
-    pa = a.get("probabilities") or {"p": a["noul"]}
-    pb = got["answers"][qid].get("probabilities") or {"p": got["answers"][qid]["noul"]}
+    pa = dict(a.get("probabilities") or {"p": a["noul"]}, act=a["action"]["act_probability"])
+    b = got["answers"][qid]
+    pb = dict(b.get("probabilities") or {"p": b["noul"]}, act=b["action"]["act_probability"])
     diff = max(abs(pa[k] - pb[k]) for k in pa)
     print("%-8s max probability difference %.4f" % (qid, diff))
     assert diff < 0.05, qid
