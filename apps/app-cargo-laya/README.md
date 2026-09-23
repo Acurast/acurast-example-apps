@@ -6,14 +6,16 @@ Laya doesn't generate text: you send it a `state` and typed questions (`choice`,
 
 ## How it works
 
-`start.sh` runs in two phases inside an Ubuntu `proot-distro` rootfs:
+The job runs on the [Acurast ONNX base image](../../images/onnx) (Alpine, Python, ONNX Runtime, tokenizers, openssl, Dropbear, curl; 47 MB download), so it installs nothing. `start.sh` runs in two phases:
 
-1. **SSH + tunnel:** installs a few packages, starts [Dropbear](https://github.com/mkj/dropbear) SSH on `127.0.0.1:2222` and the Acurast reverse tunnel (`tunnel.py`). The **primary** connection (Let's Encrypt cert) forwards to the Laya server, the **secondary** one to SSH for debugging.
-2. **Laya:** installs CPU-only PyTorch and `laya[serve]`, downloads the English checkpoint (~800 MB) and starts `serve.py` on `127.0.0.1:8080`.
+1. **SSH + tunnel:** starts [Dropbear](https://github.com/mkj/dropbear) SSH on `127.0.0.1:2222` and the Acurast reverse tunnel (`tunnel.py`). The **primary** connection (Let's Encrypt cert) forwards to the Laya server, the **secondary** one to SSH for debugging.
+2. **Laya:** downloads the model (~630 MB, checked against pinned sha256 sums) and starts `serve.py` on `127.0.0.1:8080`.
 
-Every step is skipped when already done, so a restart within the same deployment is ready in seconds. If phase 2 fails, SSH and the tunnel stay up so you can debug.
+The model downloads once per deployment, so a restart is ready in seconds. If phase 2 fails, SSH and the tunnel stay up so you can debug.
 
-`serve.py` wraps Laya's server and adds:
+The model is Laya's English checkpoint as one ONNX graph (encoder and decision head) with 8-bit weights. `laya_onnx.py` runs it with ONNX Runtime; it ports Laya's prompt building and answer format, so there is no PyTorch on the phone. It runs one thread per performance core and pins them there, using the kernel's `cpu_capacity` (else the max frequency); the efficiency cores are left out, since the fast cores would wait for them. `LAYA_THREADS` overrides the thread count.
+
+`serve.py` is plain Python (`http.server`, no web framework):
 
 | Route | What |
 |---|---|
@@ -34,11 +36,17 @@ npm i -g @acurast/cli
 acurast deploy
 ```
 
-The tunnel URL arrives at `CALLBACK_URL` as `{"event": "started", "url": ...}`, and `{"event": "ready"}` once the model is loaded (about 10-15 min on the first run).
+The tunnel URL arrives at `CALLBACK_URL` as `{"event": "started", "url": ...}`, and `{"event": "ready"}` once the model is loaded (a few minutes on the first run, the model download).
 
 ## Notes
 
 - **Several phones:** raise `numberOfReplicas`, and give them time to publish their keys (`startAt.msFromNow` of 10 min or more). Then check that every phone got the environment variables; if not, run `acurast deployments <id> -e`. Without them a phone stops at startup, since `LAYA_API_KEY` is required.
-- Speed: about 2-4 s per question on a phone CPU. Fewer questions per request is faster.
+- Speed: about 0.25-0.4 s per question on a Pixel 7a (Tensor G2), where the previous PyTorch version took 3.5 s. Fewer questions per request is faster.
 - `LAYA_DEMO_PUBLIC=1` hands the API key to the demo pages, so anyone with the URL can use them (and the API). Leave it empty to make visitors enter the key.
 - The API key never goes into the deployment bundle (which is uploaded to IPFS); the phone builds `/config.js` from the environment at runtime.
+
+## Rebuilding the model
+
+`tools/export_model.py` exports the checkpoint to ONNX, quantizes it and checks the answers against Laya on PyTorch (max probability difference 0.05). Only this step needs PyTorch. Upload the four files it writes and update `LAYA_MODEL_URL` and the sha256 sums in `start.sh`. `python3 tools/test_perf_cores.py` checks the core selection.
+
+We measured on a Pixel 7a: 4-bit weights and int8 dynamic quantization drift too far (probabilities off by 0.1-0.2); NNAPI (the Tensor TPU) and WebGPU (the Mali GPU) were slower than the CPU or failed.

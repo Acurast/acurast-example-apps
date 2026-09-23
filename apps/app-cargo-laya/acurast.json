@@ -6,8 +6,8 @@
       "entrypoint": "start.sh",
       "runtime": "Shell",
       "image": {
-        "url": "https://github.com/termux/proot-distro/releases/download/v4.30.1/ubuntu-questing-aarch64-pd-v4.30.1.tar.xz",
-        "sha256": "5ab35b90cd9a9f180656261ba400a135c4c01c2da4b74522118342f985c2d328"
+        "url": "https://github.com/Acurast/acurast-example-apps/releases/download/onnx-base-alpine3.24.2/acurast-onnx-alpine3.24.2-aarch64.tar.xz",
+        "sha256": "7c68554de4e01adc1e24356cf408d7711d59b0fa453840772bdc9083fd387fd8"
       },
       "network": "mainnet",
       "onlyAttestedDevices": true,

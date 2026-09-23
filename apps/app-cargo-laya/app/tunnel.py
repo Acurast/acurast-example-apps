@@ -19,8 +19,6 @@ import time
 import traceback
 from urllib import request as urlrequest
 
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import ec
 
 # Network-specific values. Pick the set matching $NETWORK (see .env). Keep the
 # `network` field in acurast.json in sync with this — the CLI does not read $NETWORK.
@@ -144,12 +142,11 @@ def generate_tunnel_identity_pkcs8_b64():
 
     Required by TunnelSpec.primaryKey.bytes.
     """
-    key = ec.generate_private_key(ec.SECP256R1())
-    pkcs8 = key.private_bytes(
-        encoding=serialization.Encoding.DER,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption(),
-    )
+    # openssl CLI instead of the `cryptography` package: genpkey writes PKCS#8 by default.
+    pkcs8 = subprocess.run(
+        ["openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256", "-outform", "DER"],
+        check=True, capture_output=True,
+    ).stdout
     return base64.b64encode(pkcs8).decode("ascii")
 
 
