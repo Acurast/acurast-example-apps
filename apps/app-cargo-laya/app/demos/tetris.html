@@ -4,8 +4,8 @@
   For each piece the page shortlists the 5 best placements by a classic heuristic
   (lines cleared, new holes, stack height, bumpiness) and labels each one
   "good: completes a row", "good: fits without gaps" or "bad: leaves a gap";
-  Laya picks a label. Laya can't weigh placements from neutral facts (on a Pixel
-  7a every neutral wording played at chance), so the labels carry the judgement.
+  Laya gets the piece and the column heights and picks a label. Neutral option
+  texts played close to chance on a Pixel 7a, so the labels carry the judgement.
   Modes:
     step      - the game waits for Laya, then drops the piece where it chose.
     real-time - the piece falls at a fixed speed; when Laya's answer arrives the
@@ -119,7 +119,7 @@ function stats(b) {
   }
   let bump = 0;
   for (let x = 1; x < W; x++) bump += Math.abs(heights[x] - heights[x - 1]);
-  return { holes, bump, maxH: Math.max(...heights), agg: heights.reduce((a, v) => a + v, 0) };
+  return { heights, holes, bump, maxH: Math.max(...heights), agg: heights.reduce((a, v) => a + v, 0) };
 }
 
 // ---------------------------------------------------------------- candidates for Laya
@@ -151,11 +151,12 @@ function verdict(c) {
   return c.newHoles ? 'bad: leaves a gap' : 'good: fits without gaps';
 }
 async function decide(type, cands) {
-  // Short labels, no board in the state: 0.16 s per piece on a Pixel 7a (was 1.1 s with
-  // the full option texts) and 2-10 lines per 40 pieces instead of 1-2.
+  // The piece and column heights as state, short labels as options. On a Pixel 7a (3 games
+  // x 40 pieces): 0.35 s per piece and 10-15 lines, where the full option texts took 1.1 s
+  // and cleared 1-2. Without the state the same labels cleared 2-10.
   const byVerdict = {};
   for (const c of [...cands].sort((a, b) => b.h - a.h)) byVerdict[verdict(c)] ??= c;
-  const { answers, ms } = await Laya.ask('', { place: {
+  const { answers, ms } = await Laya.ask({ piece: type, column_heights: stats(board).heights }, { place: {
     type: 'choice',
     instructions: 'Pick the best Tetris placement.' + ($('hint').value.trim() ? ` Player's strategy: ${$('hint').value.trim()}` : ''),
     criteria: Object.keys(byVerdict),
