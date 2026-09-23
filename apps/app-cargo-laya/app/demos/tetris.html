@@ -1,9 +1,12 @@
 <!doctype html>
 <!--
   Tetris, placements chosen by Laya.
-  For each piece the page lists the 5 best placements by a classic heuristic
-  (lines cleared, new holes, stack height, bumpiness), shuffles them, and Laya
-  picks one. Modes:
+  For each piece the page shortlists the 5 best placements by a classic heuristic
+  (lines cleared, new holes, stack height, bumpiness) and labels each one
+  "good: completes a row", "good: fits without gaps" or "bad: leaves a gap";
+  Laya picks a label. Laya can't weigh placements from neutral facts (on a Pixel
+  7a every neutral wording played at chance), so the labels carry the judgement.
+  Modes:
     step      - the game waits for Laya, then drops the piece where it chose.
     real-time - the piece falls at a fixed speed; when Laya's answer arrives the
                 piece jumps to the chosen rotation/column if it still fits.
@@ -30,6 +33,7 @@
   <div class="board" id="board"><canvas id="c"></canvas><div id="badge"></div></div>
   <div class="side">
     <h3>Tetris: Laya picks every placement</h3>
+    <p class="muted">The page shortlists 5 placements and labels each good or bad; Laya picks one.</p>
     <label>Mode
       <select id="mode">
         <option value="step">step: game waits for each decision</option>
@@ -134,26 +138,30 @@ function candidates(type) {
         `${cleared ? `clears ${cleared} line${cleared > 1 ? 's' : ''}` : 'clears no line'}, ` +
         `${newHoles ? `creates ${newHoles} hole${newHoles > 1 ? 's' : ''}` : 'no new holes'}, ` +
         `stack height ${s.maxH}, bumpiness ${s.bump}`;
-      all.push({ id: `r${rot.r}x${x}`, r: rot.r, cells: rot.cells, x, h, text });
+      all.push({ id: `r${rot.r}x${x}`, r: rot.r, cells: rot.cells, x, h, text, cleared, newHoles });
     }
   }
   const top = all.sort((a, b) => b.h - a.h).slice(0, 5);
   for (let i = top.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [top[i], top[j]] = [top[j], top[i]]; }
   return top;
 }
+// The label Laya chooses from; the best-scoring placement per label stands for it.
+function verdict(c) {
+  if (c.cleared) return 'good: completes ' + (c.cleared === 1 ? 'a row' : `${c.cleared} rows`);
+  return c.newHoles ? 'bad: leaves a gap' : 'good: fits without gaps';
+}
 async function decide(type, cands) {
-  const s = stats(board);
-  const { answers, ms } = await Laya.ask(
-    { piece: type, stack_height: s.maxH, existing_holes: s.holes },
-    { place: {
-      type: 'choice',
-      instructions: 'Choose where to drop this Tetris piece. Clearing lines is best, never create holes if avoidable, keep the stack low and flat.' +
-        ($('hint').value.trim() ? ` Player's strategy: ${$('hint').value.trim()}` : ''),
-      criteria: Object.fromEntries(cands.map(c => [c.id, c.text])),
-    } },
-  );
+  // Short labels, no board in the state: 0.16 s per piece on a Pixel 7a (was 1.1 s with
+  // the full option texts) and 2-10 lines per 40 pieces instead of 1-2.
+  const byVerdict = {};
+  for (const c of [...cands].sort((a, b) => b.h - a.h)) byVerdict[verdict(c)] ??= c;
+  const { answers, ms } = await Laya.ask('', { place: {
+    type: 'choice',
+    instructions: 'Pick the best Tetris placement.' + ($('hint').value.trim() ? ` Player's strategy: ${$('hint').value.trim()}` : ''),
+    criteria: Object.keys(byVerdict),
+  } });
   decisions++; totalMs += ms;
-  return { choice: cands.find(c => c.id === answers.place.choice), probabilities: answers.place.probabilities, ms };
+  return { choice: byVerdict[answers.place.choice], probabilities: answers.place.probabilities, ms };
 }
 
 // ---------------------------------------------------------------- game flow
