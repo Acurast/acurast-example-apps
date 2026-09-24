@@ -6,12 +6,14 @@ There is no model inside: apps download their weights at start (see [app-cargo-l
 
 ```json
 "image": {
-  "url": "https://github.com/Acurast/acurast-example-apps/releases/download/onnx-base-alpine3.24.2/acurast-onnx-alpine3.24.2-aarch64.tar.xz",
+  "url": "https://cdn.papers.tech/files/cargo-laya/7c68554de4e01adc1e24356cf408d7711d59b0fa453840772bdc9083fd387fd8/onnx-base/acurast-onnx-alpine3.24.2-aarch64.tar.xz",
   "sha256": "7c68554de4e01adc1e24356cf408d7711d59b0fa453840772bdc9083fd387fd8"
 }
 ```
 
 `./build.sh` rebuilds it with Docker and prints the sha256. Packages come from Alpine's repositories; `tokenizers` comes from PyPI (musl wheel).
+
+Licences: `./sources.sh` writes `out/THIRD-PARTY.tsv` (every package, version and licence) and `out/sources/` (Alpine's recipe and the upstream source for every GPL, LGPL or MPL package). They are published next to the image (`files/cargo-laya/.../onnx-base/THIRD-PARTY.tsv`, `SOURCE.md`, `sources/`): publish them again whenever the image changes.
 
 Notes for apps:
 

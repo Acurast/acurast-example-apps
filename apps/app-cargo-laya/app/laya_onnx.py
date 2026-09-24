@@ -1,8 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# Derived from the `laya` package 0.3.11 by Convai Innovations (laya/common.py,
+# laya/onnx_agent.py, laya/agent.py), licensed under the Apache License 2.0:
+# https://www.apache.org/licenses/LICENSE-2.0 and https://huggingface.co/convaiinnovations/laya
+# Modified for Acurast: ported from PyTorch/transformers to numpy + tokenizers + ONNX Runtime,
+# added performance-core selection for phones.
 """Laya inference on ONNX Runtime, without PyTorch or transformers.
 
-Prompt building, option rendering, temperatures and the answer format are ported
-from the `laya` package 0.3.11 (laya/common.py, laya/onnx_agent.py, Apache-2.0,
-https://huggingface.co/convaiinnovations/laya), so answers match `laya.Agent`.
+Prompt building, option rendering, temperatures and the answer format follow
+laya.Agent (see the header), so answers match it.
 The model is Laya's English checkpoint exported to ONNX (encoder + decision head
 in one graph) with 8-bit weight-only quantization (MatMulNBits); see README.md.
 """

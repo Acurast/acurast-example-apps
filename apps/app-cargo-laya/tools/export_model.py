@@ -4,8 +4,8 @@
     python3 -m venv .venv && .venv/bin/pip install torch "laya>=0.3.11,<0.4" onnx onnxscript onnxruntime
     .venv/bin/python export_model.py out/model
 
-Writes laya.onnx (+ laya.onnx.data), tokenizer/tokenizer.json and rl_agent_config.json:
-everything app/laya_onnx.py needs. Only this script needs PyTorch; the phone doesn't.
+Writes laya.onnx (+ laya.onnx.data), tokenizer/tokenizer.json and rl_agent_config.json
+(everything app/laya_onnx.py needs), plus LICENSE and NOTICE (Apache-2.0: what changed). Only this script needs PyTorch; the phone doesn't.
 """
 import os
 import shutil
@@ -74,6 +74,9 @@ for f in os.listdir(out):
         os.remove(os.path.join(out, f))
 
 shutil.copy(os.path.join(src, "rl_agent_config.json"), out)
+# Apache-2.0: ship the license and a notice that says what was changed.
+for f in ("LICENSE", "NOTICE"):
+    shutil.copy(os.path.join(os.path.dirname(os.path.abspath(__file__)), "model-license", f), out)
 shutil.copy(os.path.join(src, "tokenizer", "tokenizer.json"), os.path.join(out, "tokenizer"))
 
 # The ONNX runner (tokenizers, numpy) must match laya on PyTorch.

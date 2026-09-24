@@ -1,0 +1,24 @@
+Laya (English checkpoint), ONNX 8-bit build for app-cargo-laya
+===============================================================
+
+This directory contains a modified version of the Laya decision model:
+
+  Laya by Convai Innovations
+  https://huggingface.co/convaiinnovations/laya
+  Licensed under the Apache License, Version 2.0 (see LICENSE)
+
+Laya's backbone is ModernBERT-large by Answer.AI and LightOn
+(https://huggingface.co/answerdotai/ModernBERT-large), also licensed under the
+Apache License, Version 2.0. The tokenizer (tokenizer/tokenizer.json) and
+rl_agent_config.json are copied unchanged from convaiinnovations/laya.
+
+Changes made for Acurast, 2026-09-24, to model.safetensors:
+  - exported the encoder and the decision head to one ONNX graph
+    (laya.onnx + laya.onnx.data) with torch.onnx (dynamo exporter, opset 18)
+  - quantized the MatMul weights to 8 bits (ONNX Runtime MatMulNBits,
+    block size 32, symmetric, accuracy level 4)
+The answers differ slightly from the original (probabilities within 0.05 on
+our checks). The export script is tools/export_model.py in
+https://github.com/Acurast/acurast-example-apps (apps/app-cargo-laya).
+
+This build is not endorsed by Convai Innovations, Answer.AI or LightOn.

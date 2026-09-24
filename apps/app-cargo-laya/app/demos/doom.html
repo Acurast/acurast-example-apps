@@ -2,7 +2,8 @@
 <!--
   Doom, played by Laya. The engine is Chocolate Doom 3.1.1 compiled to WebAssembly
   with a small bridge that reports the game state (from github.com/lukaske/jev-doom-agent,
-  GPL-2.0-or-later, source and notices in doom/), running Freedoom 2 (BSD).
+  GPL-2.0-or-later), running Freedoom 2 (BSD). The browser loads it from the CDN (not
+  through the phone); its source and licences are published next to it (DOOM_SOURCE).
   Laya only gets what a player sees on screen: the HUD (health, ammo, the red flash
   when hit) and what is in the 90-degree view (monsters, items, doors and switches in
   line of sight, how far the walls ahead are). No map, no exit location, nothing
@@ -45,6 +46,8 @@
   <div class="side">
     <h3>Doom: Laya picks every move</h3>
     <p class="muted">Freedoom on the real Doom engine. The page lists what makes sense right now, Laya picks one, the page carries it out.</p>
+    <p class="muted small">Engine: <a href="https://www.chocolate-doom.org/" target="_blank" rel="noopener">Chocolate Doom</a> (GPL-2.0-or-later,
+      <a id="doom-source" target="_blank" rel="noopener">source and licences</a>) with Freedoom 2 (BSD).</p>
     <label>Mode
       <select id="mode">
         <option value="step">step: the game pauses while Laya decides</option>
@@ -62,6 +65,13 @@
 <script src="laya.js"></script>
 <script>
 const $ = id => document.getElementById(id);
+// The engine on the CDN (tools/package_doom.sh); ?engine=local uses doom/ next to this page.
+const ENGINE = new URLSearchParams(location.search).get('engine') === 'local'
+  ? { js: './doom/chocolate-doom.js', wasm: 'doom/chocolate-doom.wasm', data: 'doom/chocolate-doom.data' }
+  : { js: 'https://cdn.papers.tech/files/cargo-laya/f8151073eca3ed1b3b3c6dde97a83a163d5290fcb104dd897d7a837ec54bf128/doom/chocolate-doom.js',
+      wasm: 'https://cdn.papers.tech/files/cargo-laya/dcb485b97d7f4ff44754f51163c38eb1cba6dc65323126c8d49a3b57eb6edfa4/doom/chocolate-doom.wasm',
+      data: 'https://cdn.papers.tech/files/cargo-laya/a8772e088847032510d97ba2312406a6998f21cbab44d4ff10696faa9c0ecd4b/doom/chocolate-doom.data' };
+const DOOM_SOURCE = 'https://cdn.papers.tech/files/cargo-laya/63832be0897163d24bfc2d1f28c02a60cc95bb2579aa68d8dfba4f3793b0b1d1/doom/SOURCE.md';
 // ?speed=3 runs the game (and the controller's timing) 3x faster, for testing: both clocks
 // the engine reads are scaled before it starts.
 const SPEED = Math.max(0.25, Math.min(8, +new URLSearchParams(location.search).get('speed') || 1));
@@ -97,12 +107,12 @@ async function boot() {
   const dpr = Object.getOwnPropertyDescriptor(window, 'devicePixelRatio');
   if (dpr && dpr.configurable) Object.defineProperty(window, 'devicePixelRatio', { configurable: true, get: () => 1 });
   const [data, { default: create }] = await Promise.all([
-    fetch('doom/chocolate-doom.data').then(r => { if (!r.ok) throw new Error('doom/chocolate-doom.data: HTTP ' + r.status); return r.arrayBuffer(); }),
-    import('./doom/chocolate-doom.js'),
+    fetch(ENGINE.data).then(r => { if (!r.ok) throw new Error('chocolate-doom.data: HTTP ' + r.status); return r.arrayBuffer(); }),
+    import(ENGINE.js),
   ]);
   const canvas = $('screen');
   doom = await create({
-    canvas, keyboardListeningElement: canvas, locateFile: p => 'doom/' + p, getPreloadedPackage: () => data,
+    canvas, keyboardListeningElement: canvas, locateFile: p => p.endsWith('.wasm') ? ENGINE.wasm : p, getPreloadedPackage: () => data,
     noInitialRun: true, print: () => {}, printErr: () => {},
     preRun: [m => {
       try { m.FS.mkdir('/config'); } catch (e) {}
@@ -374,6 +384,7 @@ $('go').onclick = async () => {
   loop(++game);
 };
 log.textContent = 'Press Start: the engine (31 MB) loads on the first start.';
+$('doom-source').href = DOOM_SOURCE;
 if (new URLSearchParams(location.search).get('embed') === '1') document.body.classList.add('embed');
 if (new URLSearchParams(location.search).get('auto') === '1') $('go').click();
 </script>

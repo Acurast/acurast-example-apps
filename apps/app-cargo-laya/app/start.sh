@@ -8,9 +8,9 @@
 #
 # Runs on the Acurast ONNX base image (images/onnx: Alpine + Python + ONNX
 # Runtime + tokenizers + openssl + dropbear + curl), so nothing is installed here.
-# Phase 1 brings up SSH + the tunnel, phase 2 downloads the model (~630 MB,
-# once per deployment) and starts the server. If phase 2 fails you can still
-# SSH in and debug it live.
+# Phase 1 brings up SSH + the tunnel, phase 2 starts the server, which downloads
+# the model (~630 MB, once per deployment) while the demo pages show the
+# progress. If phase 2 fails you can still SSH in and debug it live.
 
 echo "=== Setting up environment ==="
 export HOME=/root
@@ -24,7 +24,6 @@ WEB_PORT="${WEB_PORT:-8080}"
 # The rootfs survives restarts within the same deployment (the processor keys
 # it by deployment), so the model downloads once.
 MODEL_DIR=/root/laya-model
-MODEL_URL="${LAYA_MODEL_URL:-https://huggingface.co/acurast/laya-english-onnx-int8/resolve/main}"
 
 DROPBEAR_PID=""
 TUNNEL_PID=""
@@ -78,32 +77,21 @@ fail_keep_alive() {
     exit 1
 }
 
-# Laya's English checkpoint as one ONNX graph with 8-bit weights, built by
-# tools/export_model.py. Pinned by sha256; -c resumes an interrupted download.
-fetch() {
-    [ -f "$MODEL_DIR/$2" ] && return 0
-    mkdir -p "$(dirname "$MODEL_DIR/$2")"
-    wget -q -c -T 60 -O "$MODEL_DIR/$2.part" "$MODEL_URL/$2" || return 1
-    echo "$1  $MODEL_DIR/$2.part" | sha256sum -c -s || { rm -f "$MODEL_DIR/$2.part"; return 1; }
-    mv "$MODEL_DIR/$2.part" "$MODEL_DIR/$2"
-}
-send_log "Phase 2: fetching the model (~630 MB on first run)"
-fetch ae287b56bbcf5f8c4f4541ae9dfd00c914c4c48b940b8398c3058af37ba92bbd rl_agent_config.json \
-    && fetch 6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30 tokenizer/tokenizer.json \
-    && fetch ef58640e77f8ca8564302951faa29367d90373f50759fbdbf82787ce4f8dad97 laya.onnx \
-    && fetch 9dd4023acab4e01a333b6bc6e7dfea5fc34c193d6490f0e130c3ec395e229b85 laya.onnx.data \
-    || fail_keep_alive "model download failed or checksum mismatch"
-
-send_log "Phase 2: starting the server"
+# The server downloads the model itself (~630 MB, sha256-pinned in serve.py, once per
+# deployment) and shows the progress on the demo pages, so it starts right away.
+send_log "Phase 2: starting the server; it downloads the model (~630 MB on first run)"
 LAYA_HOST=127.0.0.1 LAYA_PORT="$WEB_PORT" LAYA_MODEL_DIR="$MODEL_DIR" \
     python3 "$SCRIPT_DIR/serve.py" &
 LAYA_PID=$!
 
 i=0
-until wget -q -O /dev/null "http://127.0.0.1:$WEB_PORT/health" 2>/dev/null; do
+until wget -q -O - "http://127.0.0.1:$WEB_PORT/health" 2>/dev/null | grep -q '"status": "ok"'; do
     kill -0 "$LAYA_PID" 2>/dev/null || fail_keep_alive "laya server exited during startup"
+    if wget -q -O - "http://127.0.0.1:$WEB_PORT/health" 2>/dev/null | grep -q '"status": "error"'; then
+        fail_keep_alive "model download or load failed: $(wget -q -O - "http://127.0.0.1:$WEB_PORT/health")"
+    fi
     i=$((i + 1))
-    [ "$i" -gt 120 ] && fail_keep_alive "laya server not healthy after 10 min"
+    [ "$i" -gt 720 ] && fail_keep_alive "laya server not ready after 60 min"
     sleep 5
 done
 send_callback "{\"event\":\"ready\",\"health\":$(wget -q -O - "http://127.0.0.1:$WEB_PORT/health")}"

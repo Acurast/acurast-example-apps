@@ -4,7 +4,8 @@ No web framework: `http.server` serves the API, the demo pages and a few helper
 routes. Inference runs on ONNX Runtime via `laya_onnx.py` (no PyTorch).
 
 Env: LAYA_HOST, LAYA_PORT, LAYA_API_KEY (bearer token, required by start.sh),
-LAYA_MODEL_DIR (default /opt/laya/model), LAYA_THREADS (default: one per
+LAYA_MODEL_DIR (default /root/laya-model; downloaded there on first start),
+LAYA_MODEL_URL (override, with {sha256} and {path}), LAYA_THREADS (default: one per
 performance core; the efficiency cores are left out),
 LAYA_DEMO_PUBLIC=1 to hand the key to the demo pages.
 
@@ -14,6 +15,7 @@ feeds don't send CORS headers. Same bearer token; public http(s) hosts only.
 GET /instance describes the phone serving this (country, chip, RAM, processor
 address, decisions served). No request logging.
 """
+import hashlib
 import hmac
 import ipaddress
 import json
@@ -37,7 +39,86 @@ MAX_STATE_CHARS = 50000
 MAX_BODY_BYTES = 2 * 1024 * 1024
 DEMO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "demos")
 
-MODEL = Laya(os.environ.get("LAYA_MODEL_DIR", "/opt/laya/model"), threads=int(os.environ.get("LAYA_THREADS") or 0))
+# ---------------------------------------------------------------- the model
+# Downloaded by the server itself (not start.sh), so the demos are up in seconds and show
+# the progress while the ~630 MB arrive. Laya's English checkpoint as ONNX with 8-bit
+# weights (tools/export_model.py), each file pinned by SHA-256; see its NOTICE.
+MODEL_DIR = os.environ.get("LAYA_MODEL_DIR", "/root/laya-model")
+CDN = "https://cdn.papers.tech/files/cargo-laya"
+MODEL_FILES = [  # (path, size, sha256)
+    ("rl_agent_config.json", 745, "ae287b56bbcf5f8c4f4541ae9dfd00c914c4c48b940b8398c3058af37ba92bbd"),
+    ("tokenizer/tokenizer.json", 3583228, "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"),
+    ("laya.onnx", 3562678, "ef58640e77f8ca8564302951faa29367d90373f50759fbdbf82787ce4f8dad97"),
+    ("laya.onnx.data", 629288960, "9dd4023acab4e01a333b6bc6e7dfea5fc34c193d6490f0e130c3ec395e229b85"),
+    ("LICENSE", 11358, "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"),
+    ("NOTICE", 1226, "dc0ec4a0d14cc5af216fb5000d86ba3bb181419fe2b1cb988dcf1445db5b1149"),
+]
+MODEL_URL = os.environ.get("LAYA_MODEL_URL") or (CDN + "/{sha256}/laya-english-onnx-int8/{path}")
+MODEL = None
+LOADING = {"phase": "downloading", "done_bytes": 0, "total_bytes": sum(f[1] for f in MODEL_FILES), "error": None}
+
+
+def _fetch(path: str, size: int, sha256: str):
+    """Download one model file, resuming a partial one; keep it only if the SHA-256 matches."""
+    dest = os.path.join(MODEL_DIR, path)
+    if os.path.exists(dest):
+        LOADING["done_bytes"] += size
+        return
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    part, url = dest + ".part", MODEL_URL.format(sha256=sha256, path=path)
+    for attempt in range(8):
+        have = os.path.getsize(part) if os.path.exists(part) else 0
+        base = LOADING["done_bytes"]
+        LOADING["done_bytes"] = base + have
+        try:
+            # A named User-Agent: Cloudflare in front of the CDN blocks Python's default one (403).
+            headers = {"User-Agent": "acurast-cargo-laya/1.0 (+https://github.com/Acurast/acurast-example-apps)"}
+            if have:
+                headers["Range"] = f"bytes={have}-"
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=60) as r, open(part, "ab" if have and r.status == 206 else "wb") as f:
+                if r.status != 206:
+                    have = 0
+                    LOADING["done_bytes"] = base
+                while chunk := r.read(1 << 20):
+                    f.write(chunk)
+                    LOADING["done_bytes"] += len(chunk)
+            break
+        except Exception as e:  # noqa: BLE001 -- a dropped connection: resume after a pause
+            LOADING["done_bytes"] = base
+            print(f"model download {path}: {e}; retrying", flush=True)
+            time.sleep(min(30, 2 ** attempt))
+    h = hashlib.sha256()
+    with open(part, "rb") as f:
+        while chunk := f.read(1 << 20):
+            h.update(chunk)
+    if h.hexdigest() != sha256:
+        os.remove(part)
+        raise RuntimeError(f"{path}: checksum mismatch")
+    os.replace(part, dest)
+
+
+def _prepare_model():
+    global MODEL
+    try:
+        for path, size, sha256 in MODEL_FILES:
+            _fetch(path, size, sha256)
+        LOADING["phase"] = "loading"
+        MODEL = Laya(MODEL_DIR, threads=int(os.environ.get("LAYA_THREADS") or 0))
+        LOADING["phase"] = "ready"
+        print("model ready", flush=True)
+    except Exception as e:  # noqa: BLE001 -- reported on /health; start.sh keeps SSH up for debugging
+        LOADING["phase"], LOADING["error"] = "error", str(e)[:300]
+        traceback.print_exc()
+
+
+def _progress():
+    total = LOADING["total_bytes"]
+    return {"phase": LOADING["phase"], "percent": round(100 * min(LOADING["done_bytes"], total) / total, 1),
+            "done_mb": round(LOADING["done_bytes"] / 1e6), "total_mb": round(total / 1e6), "error": LOADING["error"]}
+
+
+threading.Thread(target=_prepare_model, daemon=True).start()
 
 
 class HTTPError(Exception):
@@ -302,6 +383,9 @@ class Handler(BaseHTTPRequestHandler):
 
     # ------------------------------------------------------------ routes
     def health(self, q):
+        if MODEL is None:
+            status = "error" if LOADING["phase"] == "error" else "loading"
+            return self._json({"status": status, "loaded": [], "device": "cpu", "progress": _progress()})
         self._json({"status": "ok", "loaded": MODEL.loaded, "device": "cpu", "cores": MODEL.cores})
 
     def systemone(self, q):
@@ -326,6 +410,9 @@ class Handler(BaseHTTPRequestHandler):
         state_len = len(state) if isinstance(state, str) else len(json.dumps(state, default=str))
         if state_len > MAX_STATE_CHARS:
             raise HTTPError(413, "state too large (%d > %d chars)" % (state_len, MAX_STATE_CHARS))
+        if MODEL is None:
+            p = _progress()
+            raise HTTPError(503, f"the model is still {p['phase']} on the phone ({p['percent']}%)")
         try:
             result = MODEL.predict(state, questions)
         except ValueError as e:  # question validation errors name the question and what to fix

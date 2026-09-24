@@ -41,7 +41,8 @@ const Laya = (() => {
       try {
         const h = await (await fetch(url + '/health')).json();
         const auth = await fetch(url + '/v1/systemone', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key }, body: '{}' });
-        status.textContent = auth.status === 401 ? 'reachable, but the key is wrong' : `connected · model ${h.loaded.join(', ')}`;
+        status.textContent = auth.status === 401 ? 'reachable, but the key is wrong'
+          : h.status === 'ok' ? `connected · model ${h.loaded.join(', ')}` : `connected · model ${h.progress ? h.progress.percent + '% downloaded' : 'loading'}`;
       } catch (e) { status.textContent = 'not reachable: ' + e.message; }
     };
     d.onclick = e => { if (e.target === d) d.close(); }; // click outside closes
@@ -49,17 +50,55 @@ const Laya = (() => {
     return d;
   }
 
+  // The model's licence notice (Apache-2.0: what was changed), next to the weights on the CDN.
+  const MODEL_NOTICE = 'https://cdn.papers.tech/files/cargo-laya/dc0ec4a0d14cc5af216fb5000d86ba3bb181419fe2b1cb988dcf1445db5b1149/laya-english-onnx-int8/NOTICE';
+
+  // A fresh phone downloads the model first (~630 MB): show the progress in a banner, and let
+  // requests wait for it instead of failing. Resolves once the model answers.
+  let ready = false, waiting = null;
+  function banner(p) {
+    let el = document.querySelector('.acu-loading');
+    if (!p) { if (el) el.remove(); return; }
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'acu-loading';
+      el.style.cssText = 'position:sticky;top:0;z-index:50;padding:8px 14px;background:#111;border-bottom:2px solid var(--lime,#b4e600);font:13px ui-monospace,monospace;color:#eee';
+      document.body.prepend(el);
+    }
+    const pct = Math.max(0, Math.min(100, p.percent || 0));
+    el.innerHTML = p.error
+      ? `The model failed to load on the phone: ${esc(p.error)}`
+      : `${p.phase === 'loading' ? 'Loading the model into memory' : `The model is downloading on the phone: ${pct}% (${p.done_mb} / ${p.total_mb} MB)`}. ` +
+        `Decisions start as soon as it's ready.<div style="height:4px;margin-top:6px;background:#333"><div style="height:4px;width:${pct}%;background:var(--lime,#b4e600)"></div></div>`;
+  }
+  function waitReady() {
+    if (ready) return Promise.resolve();
+    return waiting ??= (async () => {
+      for (;;) {
+        const { url } = config();
+        const h = await fetch(url + '/health').then(r => r.json());  // unreachable: throws, the caller shows it
+        if (h.status === 'ok') { ready = true; banner(null); return; }
+        banner(h.progress || { percent: 0, phase: 'downloading' });
+        if (h.status === 'error') throw new Error('The model failed to load on the phone.');
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    })().finally(() => { waiting = null; });
+  }
+
   // POST /v1/systemone. `questions` is Laya's typed-question object.
   // Returns { answers, ms }.
   async function ask(state, questions) {
     const url = load('laya-url').replace(/\/+$/, ''), key = load('laya-key');
     if (!url || !key) throw new Error('Set the deployment URL and API key first.');
+    await waitReady();
     const t = performance.now();
-    const res = await fetch(url + '/v1/systemone?demo=' + encodeURIComponent(PAGE), {
+    const send = () => fetch(url + '/v1/systemone?demo=' + encodeURIComponent(PAGE), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key },
       body: JSON.stringify({ state, questions }),
     });
+    let res = await send();
+    if (res.status === 503) { ready = false; await waitReady(); res = await send(); }  // restarted, model reloading
     if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + (await res.text()));
     const out = { answers: (await res.json()).answers, ms: Math.round(performance.now() - t) };
     toast(out.ms);
@@ -254,13 +293,14 @@ const Laya = (() => {
           <a href="${tag('https://hub.acurast.com/')}" target="_blank" rel="noopener">Hub</a>
           <a href="https://x.com/Acurast" target="_blank" rel="noopener">@Acurast</a>
           <a href="api.html">API</a><a href="stats.html">Stats</a></nav>
-        <div class="credit muted">Model: <a href="https://huggingface.co/convaiinnovations/laya" target="_blank" rel="noopener">Laya</a> by Convai Innovations (Apache-2.0), running unmodified on a phone.</div>`;
+        <div class="credit muted">Model: <a href="https://huggingface.co/convaiinnovations/laya" target="_blank" rel="noopener">Laya</a> by Convai Innovations (Apache-2.0), converted to ONNX and quantized to 8 bits for phones (<a href="${MODEL_NOTICE}" target="_blank" rel="noopener">notice</a>).</div>`;
       document.body.appendChild(f);
     }
     // No URL/key at all: open settings right away.
     if (!config().url || !config().key) panel.showModal();
     loadInstance();
     setInterval(loadInstance, 30000); // keep the decisions counter fresh
+    if (config().url) waitReady().catch(() => {}); // show the download banner right away
     hit('view');
   }
   brand();
