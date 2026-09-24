@@ -3,7 +3,7 @@
     "external-deps": {
       "projectName": "external-deps",
       "fileUrl": "dist/bundle.js",
-      "network": "canary",
+      "network": "mainnet",
       "onlyAttestedDevices": true,
       "assignmentStrategy": {
         "type": "Single"

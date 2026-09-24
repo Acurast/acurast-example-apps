@@ -3,7 +3,7 @@
     "webserver": {
       "projectName": "webserver",
       "fileUrl": "dist/bundle.js",
-      "network": "canary",
+      "network": "mainnet",
       "onlyAttestedDevices": true,
       "assignmentStrategy": {
         "type": "Single"
