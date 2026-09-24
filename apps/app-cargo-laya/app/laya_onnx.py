@@ -121,6 +121,8 @@ def perf_cores() -> List[int]:
     (Pixel 7a: 2 X1 + 2 A78 0.37 s per question, 2 X1 alone 0.81 s, adding little cores
     2.6 s). A Cargo job may get fewer than all cores, so only allowed ones count.
     """
+    if not hasattr(os, "sched_getaffinity"):  # macOS: no affinity API, let the OS schedule
+        return list(range(os.cpu_count() or 1))
     allowed = sorted(os.sched_getaffinity(0))
     for f in ("cpu_capacity", "cpufreq/cpuinfo_max_freq"):  # one source for all cores
         try:
@@ -153,7 +155,8 @@ class Laya:
         # Pin before the session exists: ONNX Runtime's worker threads inherit it, and so
         # do the server's request threads started from this one.
         self.cores = perf_cores()
-        os.sched_setaffinity(0, self.cores)
+        if hasattr(os, "sched_setaffinity"):
+            os.sched_setaffinity(0, self.cores)
         self.session = self._session(threads or len(self.cores))
 
     def _session(self, threads: int):

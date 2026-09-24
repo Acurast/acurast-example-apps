@@ -2,3 +2,5 @@
 .acurast
 .env
 
+app/demos/doom/
+app/demos/_bench/

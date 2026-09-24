@@ -216,6 +216,7 @@ PAGES = {
     "index": ("Laya on Acurast: decisions made on a phone", "Snake, Tetris, a mail sorter, a dating app and more, every decision made by an open AI model on a phone in the Acurast Cloud."),
     "snake": ("Laya plays Snake", "Every move decided by an open AI model running on a phone in the Acurast Cloud."),
     "tetris": ("Laya plays Tetris", "An open AI model on a phone picks every placement."),
+    "doom": ("Laya plays Doom", "The real Doom engine with Freedoom; an open AI model on a phone picks every move."),
     "spam": ("Laya sorts the mail", "Inbox, spam or phishing? A phone in the Acurast Cloud reads your mail. No account, not logged."),
     "tinder": ("Laya swipes for you", "Tell it what you want in a partner for life. A phone swipes through history's strangest profiles."),
     "newsroom": ("Laya Newsroom", "News, satire, clickbait or manipulation? Judged by an open AI model on a phone. Bring any RSS feed."),

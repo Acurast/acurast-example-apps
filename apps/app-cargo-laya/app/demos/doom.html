@@ -1,0 +1,333 @@
+<!doctype html>
+<!--
+  Doom, played by Laya. The engine is Chocolate Doom 3.1.1 compiled to WebAssembly
+  with a small bridge that reports the game state (from github.com/lukaske/jev-doom-agent,
+  GPL-2.0-or-later, source and notices in doom/), running Freedoom 2 (BSD).
+  Laya only gets what a player sees on screen: the HUD (health, ammo, the red flash
+  when hit) and what is in the 90-degree view (monsters, items, doors and switches in
+  line of sight, how far the walls ahead are). No map, no exit location, nothing
+  behind walls. The page remembers where the player has been, like a person would.
+  Each turn it lists the actions that make sense right now, Laya picks one, and a
+  small local controller carries it out: aim until the enemy is centred, walk until
+  the item is picked up, and so on.
+  Modes:
+    step      - the game pauses while Laya decides.
+    real-time - the game keeps running; monsters don't wait.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laya plays Doom · Acurast</title>
+<link rel="stylesheet" href="demos.css">
+<style>
+  #screen { background: #000; border: 2px solid var(--border); width: 640px; max-width: 100%; aspect-ratio: 4 / 3; image-rendering: pixelated; display: block; }
+  #log { white-space: pre-wrap; margin-top: 12px; font: 13px/1.55 ui-monospace, monospace; }
+  .board { position: relative; align-self: flex-start; }
+  #action { position: absolute; left: 0; right: 0; bottom: 14px; text-align: center; font: bold 20px ui-monospace, monospace;
+            color: var(--lime); text-shadow: 0 0 6px #000, 0 0 2px #000; pointer-events: none; }
+  .flash #screen { animation: flash-border 0.6s ease-out; }
+  @keyframes flash-border { from { box-shadow: 0 0 0 6px var(--lime), 0 0 40px var(--lime); } to { box-shadow: none; } }
+</style>
+</head>
+<body>
+<a class="back" href="index.html">&larr; all demos</a>
+<div class="wrap">
+  <div class="board" id="board"><canvas id="screen" width="320" height="200" tabindex="-1"></canvas><div id="action"></div></div>
+  <div class="side">
+    <h3>Doom: Laya picks every move</h3>
+    <p class="muted">Freedoom on the real Doom engine. The page lists what makes sense right now, Laya picks one, the page carries it out.</p>
+    <label>Mode
+      <select id="mode">
+        <option value="step">step: the game pauses while Laya decides</option>
+        <option value="realtime">real-time: monsters don't wait</option>
+      </select>
+    </label>
+    <details><summary>Give Laya your own strategy</summary>
+      <label>Added to every question<input id="hint" placeholder="e.g. avoid fights, just find the exit"></label>
+    </details>
+    <button id="go">Start</button>
+    <div class="log" id="log">Loading the engine (31 MB, once)...</div>
+  </div>
+</div>
+<script src="config.js"></script>
+<script src="laya.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+// ?speed=3 runs the game (and the controller's timing) 3x faster, for testing: both clocks
+// the engine reads are scaled before it starts.
+const SPEED = Math.max(0.25, Math.min(8, +new URLSearchParams(location.search).get('speed') || 1));
+if (SPEED !== 1) {
+  const now = performance.now.bind(performance), t0 = now(), dnow = Date.now, d0 = dnow();
+  performance.now = () => t0 + (now() - t0) * SPEED;
+  Date.now = () => Math.round(d0 + (dnow() - d0) * SPEED);
+}
+const modeIn = $('mode'), log = $('log');
+try { modeIn.value = new URLSearchParams(location.search).get('mode') || localStorage.getItem('laya-doom-mode') || 'step'; } catch (e) {}
+
+// ---------------------------------------------------------------- engine
+// Bitmask of held controls, as the bridge's PromptFPS_SetControls expects.
+const K = { FORWARD: 1, BACK: 2, LEFT: 4, RIGHT: 8, STRAFE_L: 16, STRAFE_R: 32, FIRE: 64, USE: 128 };
+// Use-activated line specials (vanilla Doom): doors, and switches (the exits among them).
+const DOORS = new Set([1, 26, 27, 28, 31, 32, 33, 34, 117, 118]);
+const EXITS = new Set([11, 51]);
+const SWITCHES = new Set([7, 9, 11, 14, 15, 18, 20, 21, 23, 29, 41, 49, 50, 51, 55, 71, 101, 102, 103, 111, 112, 113, 122, 123,
+  127, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 42, 43, 45, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 99, 114, 115, 116]);
+let doom = null;
+// Lines used recently: an open door keeps its special, so don't offer it again for a while.
+const used = new Map();
+// Items that couldn't be reached (behind a window, on a ledge): skip them for a while.
+const skipped = new Map();
+const sleep = ms => new Promise(r => setTimeout(r, ms / SPEED));
+const controls = mask => doom.ccall('PromptFPS_SetControls', null, ['number'], [mask]);
+const pause = on => doom.ccall('PromptFPS_SetPaused', null, ['number'], [on ? 1 : 0]);
+// Doom angles are 32-bit fractions of a turn; positive is to the left.
+const deg = bam => ((bam | 0) / 4294967296) * 360;
+
+async function boot() {
+  // SDL sizes the canvas by devicePixelRatio; keep the engine's own 320x200 on HiDPI screens.
+  const dpr = Object.getOwnPropertyDescriptor(window, 'devicePixelRatio');
+  if (dpr && dpr.configurable) Object.defineProperty(window, 'devicePixelRatio', { configurable: true, get: () => 1 });
+  const [data, { default: create }] = await Promise.all([
+    fetch('doom/chocolate-doom.data').then(r => { if (!r.ok) throw new Error('doom/chocolate-doom.data: HTTP ' + r.status); return r.arrayBuffer(); }),
+    import('./doom/chocolate-doom.js'),
+  ]);
+  const canvas = $('screen');
+  doom = await create({
+    canvas, keyboardListeningElement: canvas, locateFile: p => 'doom/' + p, getPreloadedPackage: () => data,
+    noInitialRun: true, print: () => {}, printErr: () => {},
+    preRun: [m => {
+      try { m.FS.mkdir('/config'); } catch (e) {}
+      m.FS.writeFile('/config/default.cfg', 'fullscreen 0\ngrabmouse 0\nuse_mouse 0\n');
+      m.FS.writeFile('/config/chocolate-doom.cfg', 'aspect_ratio_correct 1\nscreenblocks 10\nforce_software_renderer 1\n');
+    }],
+  });
+  try {
+    doom.callMain(['-window', '-iwad', '/iwads/freedoom2.wad', '-warp', '1', '-skill', '2', '-nomusic', '-nosound',
+      '-config', '/config/default.cfg', '-extraconfig', '/config/chocolate-doom.cfg']);
+  } catch (e) { if (!/unwind|SimulateInfiniteLoop/.test(String(e))) throw e; }
+  pause(true);
+}
+
+// ---------------------------------------------------------------- what the page sees
+function observe() {
+  const o = JSON.parse(doom.ccall('PromptFPS_Observation', 'string', [], []));
+  if (!o.ready) return null;
+  const p = o.player, things = o.world.entities.map(e => ({ ...e, angle: deg(e.relative_angle) }));
+  // Only what is on screen: Doom shows 90 degrees, and the bridge's sight check covers walls.
+  const inView = e => e.visible && Math.abs(e.angle) <= FOV;
+  const enemies = things.filter(e => e.enemy && e.health > 0 && inView(e)).sort((a, b) => a.distance - b.distance);
+  const items = things.filter(e => e.pickup && inView(e) && !(skipped.get(e.x + ',' + e.y) > performance.now())).sort((a, b) => a.distance - b.distance);
+  // Walls in view, for depth: the ones a ray from the player hits first.
+  const walls = o.world.lines.filter(l => l.blocking);
+  const facing = p.angle / 4294967296 * 2 * Math.PI;
+  const depth = off => rayFree(p.x, p.y, facing + off * Math.PI / 180, walls);
+  const ways = [[0, 'straight ahead'], [25, 'ahead on the left'], [-25, 'ahead on the right']].map(([off, name]) => {
+    const free = depth(off), reach = Math.min(free - 40, 384), a = facing + off * Math.PI / 180;
+    return { off, name, free, end: cellOf(p.x + Math.cos(a) * reach, p.y + Math.sin(a) * reach) };
+  });
+  // Doors and switches you can see: in view, near, and no wall in front of them.
+  const lines = o.world.lines.filter(l => DOORS.has(l.special) || SWITCHES.has(l.special)).map(l => {
+    const mx = (l.x1 + l.x2) / 2, my = (l.y1 + l.y2) / 2, a = deg(Math.atan2(my - p.y, mx - p.x) / (2 * Math.PI) * 4294967296 - p.angle);
+    return { ...l, distance: segDistance(p.x, p.y, l), angle: a };
+  }).filter(l => l.distance < 320 && Math.abs(l.angle) <= FOV && depth(l.angle) >= l.distance - 8 && !(used.get(l.id) > performance.now()))
+    .sort((a, b) => a.distance - b.distance);
+  const cell = cellOf(p.x, p.y);
+  if (cell !== lastCell) { visits.set(cell, (visits.get(cell) || 0) + 1); lastCell = cell; }
+  return { raw: o, p, enemies, items, lines, ways, hurt: p.recent_damage > 0, state: o.engine_state.gamestate };
+}
+const FOV = 45;
+// Where the player has been, in 128-unit squares: what a human would remember.
+const visits = new Map();
+let lastCell = null;
+const cellOf = (x, y) => Math.floor(x / 128) + ',' + Math.floor(y / 128);
+// Distance to the first wall along angle a (radians), up to 1024 units.
+function rayFree(x, y, a, walls) {
+  const dx = Math.cos(a), dy = Math.sin(a);
+  let best = 1024;
+  for (const l of walls) {
+    const ex = l.x2 - l.x1, ey = l.y2 - l.y1, den = dx * ey - dy * ex;
+    if (Math.abs(den) < 1e-9) continue;
+    const t = ((l.x1 - x) * ey - (l.y1 - y) * ex) / den, u = ((l.x1 - x) * dy - (l.y1 - y) * dx) / den;
+    if (t > 0 && u >= 0 && u <= 1 && t < best) best = t;
+  }
+  return best;
+}
+function segDistance(px, py, l) {
+  const dx = l.x2 - l.x1, dy = l.y2 - l.y1, t = Math.max(0, Math.min(1, ((px - l.x1) * dx + (py - l.y1) * dy) / (dx * dx + dy * dy || 1)));
+  return Math.hypot(px - l.x1 - t * dx, py - l.y1 - t * dy);
+}
+// Half-width of a monster as an angle: inside it, a shot hits.
+const aimTolerance = e => Math.max(2.5, Math.atan2((e.radius || 20) * 0.7, Math.max(e.distance, 1)) * 180 / Math.PI);
+const side = a => Math.abs(a) < 15 ? 'ahead' : a > 0 ? (a > 100 ? 'behind on the left' : 'on the left') : (a < -100 ? 'behind on the right' : 'on the right');
+const range = d => d < 250 ? 'close' : d < 700 ? 'in range' : 'far';
+
+// ---------------------------------------------------------------- options for Laya
+// Like the other demos: each option says what it does, the id is that text itself, and
+// only actions that make sense right now are offered.
+function options(v) {
+  const opts = {}, e = v.enemies[0], stuck = explore.stuck >= 2;
+  if (e) {
+    // One action: turn to the enemy and fire once it's centred (aiming alone cost a decision).
+    opts[`attack the nearest enemy (${side(e.angle)})`] = { act: 'shoot', target: e };
+    if (e.distance < 300) opts['back away from the enemy'] = { act: 'retreat', target: e };
+  } else if (v.hurt) opts['turn around to find who is shooting'] = { act: 'turn', by: 180 };
+  const item = v.items[0];
+  if (item && item.distance < 900) opts['grab the item in view'] = { act: 'grab', target: item };
+  const line = v.lines[0];
+  if (line) {
+    const what = EXITS.has(line.special) ? 'press the exit switch' : DOORS.has(line.special) ? 'open the door ahead' : 'press the switch ahead';
+    opts[what] = { act: 'use', target: line };
+  }
+  // Walk into open space you haven't been to yet; else just the most open way in view.
+  const open = v.ways.filter(w => w.free > 160).sort((a, b) => b.free - a.free), fresh = open.filter(w => !visits.has(w.end));
+  for (const w of fresh.slice(0, 2)) opts[`walk ${w.name}, somewhere new`] = { act: 'walk', ...w };
+  if (!fresh.length && open.length && !stuck) opts[`walk ${open[0].name}`] = { act: 'walk', ...open[0] };
+  // Turning shows more of the level than the 90 degrees on screen; offered when nothing
+  // new is in view, else Laya spent most turns looking around.
+  if (!fresh.length) {
+    opts['look around to the left'] = { act: 'turn', by: 90 };
+    opts['look around to the right'] = { act: 'turn', by: -90 };
+  }
+  if (stuck) opts['turn around, the way ahead is blocked'] = { act: 'turn', by: 180 };
+  return opts;
+}
+function stateFor(v) {
+  const e = v.enemies[0];
+  return {
+    health: v.p.health, ammo: v.p.ammo.bullets + v.p.ammo.shells,
+    enemies_in_view: v.enemies.length,
+    nearest_enemy: e ? `${range(e.distance)}, ${side(e.angle)}` : 'none',
+    ...(v.hurt ? { taking_damage: true } : {}),
+  };
+}
+
+// ---------------------------------------------------------------- carrying it out
+const explore = { stuck: 0 };
+// Hold `mask` (plus a turn toward target) until done() or maxMs.
+async function hold(mask, maxMs, done = () => false) {
+  const t = performance.now();
+  while (performance.now() - t < maxMs && running) {
+    const v = observe();
+    if (!v || v.p.health <= 0 || done(v)) break;
+    controls(typeof mask === 'function' ? mask(v) : mask);
+    await sleep(25);
+  }
+  controls(0);
+}
+const nearest = (list, ref) => list.slice().sort((a, b) => Math.hypot(a.x - ref.x, a.y - ref.y) - Math.hypot(b.x - ref.x, b.y - ref.y))[0];
+const turnMask = a => a > 0 ? K.LEFT : K.RIGHT;
+async function execute(o) {
+  const t = o.target;
+  if (o.act === 'aim' || o.act === 'shoot') {
+    // Keep the enemy centred while firing; stop when it's dead or out of sight.
+    const track = v => nearest(v.enemies, t);
+    await hold(v => { const e = track(v); if (!e) return 0; const aimed = Math.abs(e.angle) <= aimTolerance(e); return (aimed ? K.FIRE : turnMask(e.angle)); },
+      1200, v => !track(v));
+  } else if (o.act === 'retreat') {
+    await hold(v => { const e = nearest(v.enemies, t); return K.BACK | (e && Math.abs(e.angle) > aimTolerance(e) ? turnMask(e.angle) : K.FIRE); }, 600);
+  } else if (o.act === 'grab') {
+    const start = observe().p.health;
+    await hold(v => { const i = nearest(v.items, t); return !i ? 0 : (Math.abs(i.angle) > 8 ? turnMask(i.angle) : 0) | (Math.abs(i.angle) < 30 ? K.FORWARD : 0); },
+      1800, v => !v.items.some(i => Math.hypot(i.x - t.x, i.y - t.y) < 8) || v.p.health !== start);
+    const left = observe(), still = left && left.items.find(i => i.x === t.x && i.y === t.y);
+    if (still && still.distance > t.distance - 32) skipped.set(t.x + ',' + t.y, performance.now() + 20000);
+  } else if (o.act === 'use') {
+    const mid = { x: (t.x1 + t.x2) / 2, y: (t.y1 + t.y2) / 2 };
+    const aim = v => deg(Math.atan2(mid.y - v.p.y, mid.x - v.p.x) / (2 * Math.PI) * 4294967296 - v.p.angle);
+    await hold(v => (Math.abs(aim(v)) > 6 ? turnMask(aim(v)) : 0) | (Math.abs(aim(v)) < 25 ? K.FORWARD : 0), 1500, v => segDistance(v.p.x, v.p.y, t) < 40);
+    await hold(K.USE, 150);
+    used.set(t.id, performance.now() + 15000);
+    await hold(K.FORWARD, 900); // through the door or away from the switch
+  } else if (o.act === 'turn') {
+    const goal = observe().p.angle + o.by / 360 * 4294967296;
+    await hold(v => turnMask(deg(goal - v.p.angle)), 2000, v => Math.abs(deg(goal - v.p.angle)) < 8);
+    if (o.by === 180) explore.stuck = 0;
+  } else if (o.act === 'walk') {
+    if (o.off) {
+      const goal = observe().p.angle + o.off / 360 * 4294967296;
+      await hold(v => turnMask(deg(goal - v.p.angle)), 1000, v => Math.abs(deg(goal - v.p.angle)) < 6);
+    }
+    // Walk as far as it looked open (~290 units/s), stopping once the player stops moving.
+    const a = observe().p;
+    let prev = a, still = 0;
+    await hold(K.FORWARD, Math.min(2000, Math.max(500, (o.free - 48) / 0.29)), v => {
+      still = Math.hypot(v.p.x - prev.x, v.p.y - prev.y) < 1 ? still + 1 : 0; prev = v.p; return still > 8;
+    });
+    const b = observe().p, blocked = Math.hypot(b.x - a.x, b.y - a.y) < 24;
+    explore.stuck = blocked ? explore.stuck + 1 : 0;
+    // Something that isn't a wall (a step, a closed door) was in the way: remember it.
+    if (blocked) visits.set(o.end, (visits.get(o.end) || 0) + 1);
+  }
+}
+
+// ---------------------------------------------------------------- the loop
+let running = false, game = 0, decisions = 0, totalMs = 0, deaths = 0, dead = false, last = null;
+// Run statistics, also read by test harnesses (window.doomStats).
+const stats = window.doomStats = { decisions: 0, kills: 0, deaths: 0, exits: 0, cells: 0, choices: {} };
+async function loop(id) {
+  while (running && id === game) {
+    // A hidden tab gets no animation frames, so the engine stands still: don't ask then.
+    if (document.hidden) { controls(0); await sleep(250); continue; }
+    const v = observe();
+    if (!v) { await sleep(100); continue; }
+    // Intermission, finale or a dead player: a key press moves on.
+    if (v.state !== 0 || v.p.health <= 0) {
+      if (v.p.health <= 0 && v.state === 0 && !dead) { dead = true; deaths++; stats.deaths++; render(v); }
+      if (v.state === 1 && !dead) { dead = true; stats.exits++; } // intermission: the level is done
+      pause(false); controls(K.USE); await sleep(120); controls(0); await sleep(600); continue;
+    }
+    dead = false;
+    const opts = options(v), step = modeIn.value === 'step';
+    if (step) pause(true);
+    let d;
+    const hint = $('hint').value.trim();
+    const question = { action: { type: 'choice',
+      instructions: 'You are playing Doom. Which action is best right now? Kill enemies before they hurt you, pick up items, open doors and find the exit.' +
+        (hint ? ` Player's strategy: ${hint}` : ''),
+      criteria: Object.keys(opts) } };
+    // A game runs for minutes: ride out a dropped request (tunnel blip) instead of stopping.
+    for (let attempt = 1; !d; attempt++) {
+      try { d = await Laya.ask(stateFor(v), question); }
+      catch (e) {
+        if (attempt === 3) { running = false; pause(true); log.textContent = 'Laya request failed: ' + e.message; $('go').textContent = 'Start'; return; }
+        await sleep(1000 * attempt);
+      }
+    }
+    if (!running || id !== game) return;
+    const choice = d.answers.action.choice;
+    const kind = choice.replace(/ \(.*\)$/, '').replace(/ (straight ahead|ahead on the (left|right)).*$/, '');
+    stats.decisions++; stats.choices[kind] = (stats.choices[kind] || 0) + 1;
+    stats.kills = Math.max(stats.kills, v.p.kills); stats.cells = visits.size;
+    decisions++; totalMs += d.ms; last = { choice, ms: d.ms, probabilities: d.answers.action.probabilities, state: stateFor(v) };
+    $('action').textContent = choice;
+    const b = $('board'); b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash');
+    render(v);
+    pause(false);
+    await execute(opts[choice]);
+  }
+}
+function render(v) {
+  const p = v.p;
+  log.textContent = `mode ${modeIn.value}   health ${p.health}   armor ${p.armor}   kills ${p.kills}   deaths ${deaths}\n` +
+    (last ? `\nlast decision (${last.ms} ms, avg ${Math.round(totalMs / decisions)} ms, ${decisions} decisions):\n${last.choice}\n\n` +
+      `what Laya saw: ${JSON.stringify(last.state)}\n\n${Laya.probs(last.probabilities)}` : '');
+}
+
+$('go').onclick = async () => {
+  if (running) { running = false; game++; if (doom) { controls(0); pause(true); } $('go').textContent = 'Start'; return; }
+  try { localStorage.setItem('laya-doom-mode', modeIn.value); } catch (e) {}
+  if (!doom) {
+    $('go').disabled = true; log.textContent = 'Loading the engine (31 MB, once)...';
+    try { await boot(); } catch (e) { log.textContent = 'Could not load the Doom engine: ' + e.message; $('go').disabled = false; return; }
+    $('go').disabled = false;
+    await sleep(500);
+  }
+  running = true; $('go').textContent = 'Stop';
+  loop(++game);
+};
+log.textContent = 'Press Start: the engine (31 MB) loads on the first start.';
+if (new URLSearchParams(location.search).get('auto') === '1') $('go').click();
+</script>
+</body>
+</html>
