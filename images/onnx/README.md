@@ -6,8 +6,8 @@ There is no model inside: apps download their weights at start (see [app-cargo-l
 
 ```json
 "image": {
-  "url": "https://cdn.papers.tech/files/cargo-laya/7c68554de4e01adc1e24356cf408d7711d59b0fa453840772bdc9083fd387fd8/onnx-base/acurast-onnx-alpine3.24.2-aarch64.tar.xz",
-  "sha256": "7c68554de4e01adc1e24356cf408d7711d59b0fa453840772bdc9083fd387fd8"
+  "url": "https://cdn.papers.tech/files/cargo-laya/b302053beeab0b969302656f0ee2c54158367b1074306ab3b00a8b101c8476b0/onnx-base/acurast-onnx-alpine3.24.2-aarch64.tar.xz",
+  "sha256": "b302053beeab0b969302656f0ee2c54158367b1074306ab3b00a8b101c8476b0"
 }
 ```
 

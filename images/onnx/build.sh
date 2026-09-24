@@ -22,6 +22,10 @@ docker run --platform linux/arm64 --name "$NAME" "alpine:$ALPINE" sh -euc '
     pip install --no-cache-dir --no-deps --break-system-packages --root-user-action=ignore "tokenizers>=0.22,<0.24"
     apk del py3-pip
     python3 -c "import onnxruntime, tokenizers, numpy; print(\"onnxruntime\", onnxruntime.__version__, \"tokenizers\", tokenizers.__version__)"
+    # Relative, not Alpine'"'"'s absolute /bin/busybox: processors check for the shell on the Android
+    # filesystem before starting proot, where an absolute link points outside the rootfs
+    # ("No executable shell found.").
+    ln -sf busybox /bin/sh
     find /usr/lib/python3* -name __pycache__ -prune -exec rm -rf {} +
     rm -rf /var/cache/apk/* /root/.cache
 '
