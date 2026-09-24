@@ -288,7 +288,7 @@ const Laya = (() => {
       const f = document.createElement('footer');
       f.className = 'acu-footer';
       f.innerHTML = `<div class="cta"><div><b>This runs on one phone for a few ACU a day.</b><br><span class="muted">Deploy your own Laya instance on Acurast in minutes.</span></div>
-          <a class="button" href="${tag('https://hub.acurast.com/playground')}" target="_blank" rel="noopener">Deploy your own &rarr;</a></div>
+          <a class="button" href="${tag('https://hub.acurast.com/playground?template=app-cargo-laya')}" target="_blank" rel="noopener">Deploy your own &rarr;</a></div>
         <nav><a href="${tag('https://acurast.com/')}" target="_blank" rel="noopener">acurast.com</a>
           <a href="${tag('https://docs.acurast.com/')}" target="_blank" rel="noopener">Docs</a>
           <a href="${tag('https://hub.acurast.com/')}" target="_blank" rel="noopener">Hub</a>
