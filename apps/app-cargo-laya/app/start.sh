@@ -19,6 +19,12 @@ export HOME=/root
 export TMPDIR="$HOME/tmp"
 mkdir -p "$TMPDIR"
 
+# Some processors (seen on 1.27.1) leave /etc/resolv.conf empty: no DNS at all
+# ("[Errno -3] Try again"), while the network itself works.
+if ! grep -q '^nameserver' /etc/resolv.conf 2>/dev/null; then
+    printf 'nameserver 8.8.8.8\nnameserver 1.1.1.1\nnameserver 8.8.4.4\n' > /etc/resolv.conf
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 WEB_PORT="${WEB_PORT:-8080}"
 # The rootfs survives restarts within the same deployment (the processor keys
