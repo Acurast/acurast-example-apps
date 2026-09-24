@@ -31,16 +31,24 @@ Request logging is off.
 ## Setup
 
 ```bash
-cp .env.example .env   # set ACURAST_MNEMONIC, LAYA_API_KEY, CALLBACK_URL, SSH_PASSWORD
+cp .env.example .env   # set ACURAST_MNEMONIC, LAYA_API_KEY, SSH_PASSWORD
 npm i -g @acurast/cli
+tools/tunnel_key.sh    # prints TUNNEL_KEY for .env and the URL the deployment will have
 acurast deploy
 ```
 
-The tunnel URL arrives at `CALLBACK_URL` as `{"event": "started", "url": ...}`, and `{"event": "ready"}` once the model is loaded (a few minutes on the first run, the model download).
+The URL is fixed by `TUNNEL_KEY`, so it is known before deploying. It serves the demos once the phone has downloaded the model (a few minutes on the first run; the pages show the progress).
+
+**Several phones:** `tools/deploy.sh` deploys one phone per instance, each with its own key and URL, and prints them as a JSON array:
+
+```bash
+tools/deploy.sh 10 10 --min-cpu 150000000 --wait   # 10 phones, 10 days, fast single core
+```
+
+Options: `--min-cpu` / `--min-cpu-multi` (minimum on-chain CPU benchmark scores; fast phones score about 1.5-2e8 single-core; merged with the 10 GB RAM filter in `acurast.json`), `--acu-per-day` (max price, default 0.8), `--wait` (also time until each URL serves the model). The keys go to `.acurast/tunnel-keys.env`; redeploying with a key keeps its URL.
 
 ## Notes
 
-- **Several phones:** raise `numberOfReplicas`, and give them time to publish their keys (`startAt.msFromNow` of 10 min or more). Then check that every phone got the environment variables; if not, run `acurast deployments <id> -e`. Without them a phone stops at startup, since `LAYA_API_KEY` is required.
 - Speed: about 0.25-0.4 s per question on a Pixel 7a (Tensor G2), where the previous PyTorch version took 3.5 s. Fewer questions per request is faster.
 - `LAYA_DEMO_PUBLIC=1` hands the API key to the demo pages, so anyone with the URL can use them (and the API). Leave it empty to make visitors enter the key.
 - The API key never goes into the deployment bundle (which is uploaded to IPFS); the phone builds `/config.js` from the environment at runtime.
