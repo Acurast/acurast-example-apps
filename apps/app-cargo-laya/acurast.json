@@ -41,7 +41,8 @@
         "NETWORK",
         "SSH_PASSWORD",
         "LAYA_API_KEY",
-        "LAYA_DEMO_PUBLIC"
+        "LAYA_DEMO_PUBLIC",
+        "TUNNEL_KEY"
       ],
       "processorWhitelist": [],
       "benchmarkFilters": {
