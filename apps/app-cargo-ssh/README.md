@@ -33,7 +33,7 @@ Proot does not emulate network interfaces, so any binary that calls `getifaddrs`
 
 ### Requirements
 
-- An Acurast mnemonic with funds on the canary network.
+- An Acurast mnemonic with funds on mainnet (ACU).
 - For ngrok: a free [ngrok](https://ngrok.com) account with an auth token.
 - For pinggy: optionally a [pinggy.io](https://pinggy.io) access token.
 

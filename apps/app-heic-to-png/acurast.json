@@ -3,7 +3,7 @@
     "heic-to-jpg": {
       "projectName": "heic-to-jpg",
       "fileUrl": "dist/bundle.js",
-      "network": "canary",
+      "network": "mainnet",
       "onlyAttestedDevices": true,
       "startAt": {
         "msFromNow": 180000

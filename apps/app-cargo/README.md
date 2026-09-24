@@ -15,7 +15,7 @@ The example installs `python3-requests` inside an Ubuntu rootfs at startup, call
 
 ### Requirements
 
-- An Acurast mnemonic with funds on the canary network.
+- An Acurast mnemonic with funds on mainnet (ACU).
 - A webhook endpoint to receive the public key (e.g. [webhook.watch](https://webhook.watch)).
 
 ### Configure

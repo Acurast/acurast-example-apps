@@ -3,7 +3,7 @@
     "p2p": {
       "projectName": "p2p",
       "fileUrl": "dist/bundle.js",
-      "network": "canary",
+      "network": "mainnet",
       "onlyAttestedDevices": true,
       "assignmentStrategy": {
         "type": "Single"

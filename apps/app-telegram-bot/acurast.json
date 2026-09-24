@@ -3,7 +3,7 @@
     "app-telegram-bot": {
       "projectName": "app-telegram-bot",
       "fileUrl": "./dist/bundle.js",
-      "network": "canary",
+      "network": "mainnet",
       "onlyAttestedDevices": true,
       "assignmentStrategy": {
         "type": "Single"
