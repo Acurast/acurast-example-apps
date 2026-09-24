@@ -45,7 +45,7 @@ The URL is fixed by `TUNNEL_KEY`, so it is known before deploying. It serves the
 tools/deploy.sh 10 10 --min-cpu 150000000 --wait   # 10 phones, 10 days, fast single core
 ```
 
-Options: `--min-cpu` / `--min-cpu-multi` (minimum on-chain CPU benchmark scores; fast phones score about 1.5-2e8 single-core; merged with the 10 GB RAM filter in `acurast.json`), `--acu-per-day` (max price, default 0.8), `--wait` (also time until each URL serves the model). The keys go to `.acurast/tunnel-keys.env`; redeploying with a key keeps its URL.
+Options: `--min-cpu` / `--min-cpu-multi` (minimum on-chain CPU benchmark scores; fast phones score about 1.5-2e8 single-core), `--acu-per-day` (max price, default 0.8), `--wait` (also time until each URL serves the model). The keys go to `.acurast/tunnel-keys.env`; redeploying with a key keeps its URL.
 
 ## Notes
 
