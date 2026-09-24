@@ -45,7 +45,8 @@
       ],
       "processorWhitelist": [],
       "benchmarkFilters": {
-        "minRamTotalBytes": 4000000000
+        "minRamTotalBytes": 4000000000,
+        "minCpuSingleCoreScore": 100000000
       }
     }
   }
