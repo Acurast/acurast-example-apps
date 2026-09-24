@@ -85,7 +85,7 @@
   <section>
     <h2>Good to know</h2>
     <ul>
-      <li>About 2-4 s per question: a phone CPU, no GPU. Fewer questions per request is faster.</li>
+      <li>About 0.2-1 s per question on a phone CPU, depending on the length of the state. Every question re-reads the whole state, so fewer questions per request is faster.</li>
       <li>Context is about 512 tokens and English works best. Keep <code>state</code> short.</li>
       <li>Probabilities are not perfectly calibrated. Scores tend to be more stable than yes/no.</li>
       <li>This instance is temporary: the URL changes with every redeploy.</li>

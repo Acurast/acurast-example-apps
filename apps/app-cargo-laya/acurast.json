@@ -6,8 +6,8 @@
       "entrypoint": "start.sh",
       "runtime": "Shell",
       "image": {
-        "url": "https://github.com/termux/proot-distro/releases/download/v4.30.1/ubuntu-questing-aarch64-pd-v4.30.1.tar.xz",
-        "sha256": "5ab35b90cd9a9f180656261ba400a135c4c01c2da4b74522118342f985c2d328"
+        "url": "https://cdn.papers.tech/files/cargo-laya/6a30706ca972b93e071984af05fcf6fafcb3e7dd6d89ae486b860c193513b90e/onnx-base/acurast-onnx-alpine3.24.2-aarch64.tar.xz",
+        "sha256": "6a30706ca972b93e071984af05fcf6fafcb3e7dd6d89ae486b860c193513b90e"
       },
       "network": "mainnet",
       "onlyAttestedDevices": true,
@@ -37,15 +37,16 @@
       "minProcessorReputation": 0,
       "maxCostPerExecution": 300000000000,
       "includeEnvironmentVariables": [
-        "CALLBACK_URL",
         "NETWORK",
         "SSH_PASSWORD",
         "LAYA_API_KEY",
-        "LAYA_DEMO_PUBLIC"
+        "LAYA_DEMO_PUBLIC",
+        "TUNNEL_KEY"
       ],
       "processorWhitelist": [],
       "benchmarkFilters": {
-        "minRamTotalBytes": 10000000000
+        "minRamTotalBytes": 4000000000,
+        "minCpuSingleCoreScore": 100000000
       }
     }
   }

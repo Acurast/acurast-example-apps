@@ -1,42 +1,136 @@
-"""laya.serve plus CORS and a small RSS fetcher, for the browser demos.
+"""Laya's /v1/systemone API plus the browser demos, on the Python standard library.
 
-Same env vars as `python -m laya.serve` (LAYA_HOST, LAYA_PORT, LAYA_MODELS,
-LAYA_API_KEY, ...). Auth is still the bearer token: CORS only lets browsers
-make the request, it grants nothing without the key.
+No web framework: `http.server` serves the API, the demo pages and a few helper
+routes. Inference runs on ONNX Runtime via `laya_onnx.py` (no PyTorch).
+
+Env: LAYA_HOST, LAYA_PORT, LAYA_API_KEY (bearer token, required by start.sh),
+LAYA_MODEL_DIR (default /root/laya-model; downloaded there on first start),
+LAYA_MODEL_URL (override, with {sha256} and {path}), LAYA_THREADS (default: one per
+performance core; the efficiency cores are left out),
+LAYA_DEMO_PUBLIC=1 to hand the key to the demo pages.
 
 GET /feed?url=<rss or atom url> fetches a news feed server-side, because most
 feeds don't send CORS headers. Same bearer token; public http(s) hosts only.
 
 GET /instance describes the phone serving this (country, chip, RAM, processor
-address, decisions served). No request logging: access logs are off.
+address, decisions served). No request logging.
 """
+import hashlib
+import hmac
 import ipaddress
 import json
+import mimetypes
 import os
 import socket
 import threading
 import time
+import traceback
 import urllib.parse
 import urllib.request
-from typing import Optional
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-import uvicorn
-from fastapi import Header, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
-from fastapi.staticfiles import StaticFiles
-from laya.serve import create_app
+from laya_onnx import Laya
 
 API_KEY = os.environ.get("LAYA_API_KEY") or None
 MAX_FEED_BYTES = 2_000_000
+# Guardrails for remote input, same limits as laya.serve.
+MAX_QUESTIONS = 64
+MAX_STATE_CHARS = 50000
+MAX_BODY_BYTES = 2 * 1024 * 1024
+DEMO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "demos")
 
-app = create_app()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["GET", "POST"],
-    allow_headers=["Authorization", "Content-Type"],
-)
+# ---------------------------------------------------------------- the model
+# Downloaded by the server itself (not start.sh), so the demos are up in seconds and show
+# the progress while the ~630 MB arrive. Laya's English checkpoint as ONNX with 8-bit
+# weights (tools/export_model.py), each file pinned by SHA-256; see its NOTICE.
+MODEL_DIR = os.environ.get("LAYA_MODEL_DIR", "/root/laya-model")
+CDN = "https://cdn.papers.tech/files/cargo-laya"
+MODEL_FILES = [  # (path, size, sha256)
+    ("rl_agent_config.json", 745, "ae287b56bbcf5f8c4f4541ae9dfd00c914c4c48b940b8398c3058af37ba92bbd"),
+    ("tokenizer/tokenizer.json", 3583228, "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"),
+    ("laya.onnx", 3562678, "ef58640e77f8ca8564302951faa29367d90373f50759fbdbf82787ce4f8dad97"),
+    ("laya.onnx.data", 629288960, "9dd4023acab4e01a333b6bc6e7dfea5fc34c193d6490f0e130c3ec395e229b85"),
+    ("LICENSE", 11358, "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"),
+    ("NOTICE", 1226, "dc0ec4a0d14cc5af216fb5000d86ba3bb181419fe2b1cb988dcf1445db5b1149"),
+]
+MODEL_URL = os.environ.get("LAYA_MODEL_URL") or (CDN + "/{sha256}/laya-english-onnx-int8/{path}")
+MODEL = None
+LOADING = {"phase": "downloading", "done_bytes": 0, "total_bytes": sum(f[1] for f in MODEL_FILES), "error": None}
+
+
+def _fetch(path: str, size: int, sha256: str):
+    """Download one model file, resuming a partial one; keep it only if the SHA-256 matches."""
+    dest = os.path.join(MODEL_DIR, path)
+    if os.path.exists(dest):
+        LOADING["done_bytes"] += size
+        return
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    part, url = dest + ".part", MODEL_URL.format(sha256=sha256, path=path)
+    last_error = None
+    for attempt in range(8):
+        have = os.path.getsize(part) if os.path.exists(part) else 0
+        base = LOADING["done_bytes"]
+        LOADING["done_bytes"] = base + have
+        try:
+            # A named User-Agent: Cloudflare in front of the CDN blocks Python's default one (403).
+            headers = {"User-Agent": "acurast-cargo-laya/1.0 (+https://github.com/Acurast/acurast-example-apps)"}
+            if have:
+                headers["Range"] = f"bytes={have}-"
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=60) as r, open(part, "ab" if have and r.status == 206 else "wb") as f:
+                if r.status != 206:
+                    have = 0
+                    LOADING["done_bytes"] = base
+                while chunk := r.read(1 << 20):
+                    f.write(chunk)
+                    LOADING["done_bytes"] += len(chunk)
+            break
+        except Exception as e:  # noqa: BLE001 -- a dropped connection: resume after a pause
+            LOADING["done_bytes"] = base
+            last_error = f"{type(e).__name__}: {e}"
+            LOADING["error"] = f"retrying {path} ({attempt + 1}/8): {last_error}"  # shown on /health
+            print(f"model download {path}: {last_error}; retrying", flush=True)
+            time.sleep(min(30, 2 ** attempt))
+    else:
+        raise RuntimeError(f"download of {path} from {url} failed 8 times: {last_error}")
+    LOADING["error"] = None
+    h = hashlib.sha256()
+    with open(part, "rb") as f:
+        while chunk := f.read(1 << 20):
+            h.update(chunk)
+    if h.hexdigest() != sha256:
+        os.remove(part)
+        raise RuntimeError(f"{path}: checksum mismatch")
+    os.replace(part, dest)
+
+
+def _prepare_model():
+    global MODEL
+    try:
+        for path, size, sha256 in MODEL_FILES:
+            _fetch(path, size, sha256)
+        LOADING["phase"] = "loading"
+        MODEL = Laya(MODEL_DIR, threads=int(os.environ.get("LAYA_THREADS") or 0))
+        LOADING["phase"] = "ready"
+        print("model ready", flush=True)
+    except Exception as e:  # noqa: BLE001 -- reported on /health; start.sh keeps SSH up for debugging
+        LOADING["phase"], LOADING["error"] = "error", str(e)[:300]
+        traceback.print_exc()
+
+
+def _progress():
+    total = LOADING["total_bytes"]
+    return {"phase": LOADING["phase"], "percent": round(100 * min(LOADING["done_bytes"], total) / total, 1),
+            "done_mb": round(LOADING["done_bytes"] / 1e6), "total_mb": round(total / 1e6), "error": LOADING["error"]}
+
+
+threading.Thread(target=_prepare_model, daemon=True).start()
+
+
+class HTTPError(Exception):
+    def __init__(self, status: int, detail: str = ""):
+        super().__init__(detail)
+        self.status, self.detail = status, detail
 
 
 # ---------------------------------------------------------------- about this phone
@@ -114,15 +208,6 @@ def _gather_instance():
 threading.Thread(target=_gather_instance, daemon=True).start()
 
 
-@app.middleware("http")
-async def _count_decisions(request, call_next):
-    response = await call_next(request)
-    if request.url.path == "/v1/systemone" and request.method == "POST" and response.status_code == 200:
-        DECISIONS["count"] += 1
-        _count("decision", request.query_params.get("demo") or "api")
-    return response
-
-
 def _count(event: str, page: str):
     event, page = event[:40], page[:40]
     if event not in EVENTS and len(EVENTS) >= MAX_EVENT_KEYS:
@@ -132,39 +217,19 @@ def _count(event: str, page: str):
         pages[page] = pages.get(page, 0) + 1
 
 
-@app.api_route("/hit", methods=["GET", "POST"])
-def hit(e: str = "view", p: str = "?"):
-    """Page events from the demos (view, share, outgoing clicks). Counted, not logged."""
-    _count(e, p)
-    return Response(status_code=204)
-
-
-@app.get("/stats")
-def stats():
-    return {"decisions": DECISIONS["count"], "uptime_s": int(time.time() - STARTED), "events": EVENTS,
-            "instance": {k: INSTANCE.get(k) for k in ("country", "chip", "deployment_id")}}
-
-
-@app.get("/instance")
-def instance():
-    """Public facts about the phone serving this, for the demo pages' badge."""
-    return {**INSTANCE, "decisions": DECISIONS["count"], "uptime_s": int(time.time() - STARTED)}
-
-
 def _public_url(url: str) -> str:
     """Reject non-http(s) URLs and hosts that resolve to loopback/private ranges,
     so the fetcher can't be pointed at the phone or its local network."""
     parts = urllib.parse.urlsplit(url)
     if parts.scheme not in ("http", "https") or not parts.hostname:
-        raise HTTPException(status_code=400, detail="only http(s) URLs are allowed")
+        raise HTTPError(400, "only http(s) URLs are allowed")
     try:
         infos = socket.getaddrinfo(parts.hostname, parts.port or 443, proto=socket.IPPROTO_TCP)
     except OSError:
-        raise HTTPException(status_code=400, detail="cannot resolve host")
+        raise HTTPError(400, "cannot resolve host")
     for info in infos:
-        ip = ipaddress.ip_address(info[4][0])
-        if not ip.is_global:
-            raise HTTPException(status_code=400, detail="host is not public")
+        if not ipaddress.ip_address(info[4][0]).is_global:
+            raise HTTPError(400, "host is not public")
     return url
 
 
@@ -178,34 +243,6 @@ class _CheckedRedirects(urllib.request.HTTPRedirectHandler):
 _opener = urllib.request.build_opener(_CheckedRedirects)
 
 
-@app.get("/feed")
-def feed(url: str, authorization: Optional[str] = Header(default=None)):
-    if API_KEY is not None and authorization != "Bearer " + API_KEY:
-        raise HTTPException(status_code=401, detail="invalid or missing bearer token")
-    req = urllib.request.Request(_public_url(url), headers={"User-Agent": "laya-demo/1.0 (+rss)"})
-    try:
-        with _opener.open(req, timeout=15) as resp:
-            data = resp.read(MAX_FEED_BYTES)
-    except HTTPException:
-        raise
-    except Exception as e:  # noqa: BLE001 -- report fetch problems to the page
-        raise HTTPException(status_code=502, detail=f"feed fetch failed: {e}")
-    # Only pass through things that look like feeds: this is not a general web fetcher.
-    head = data[:4000].lower()
-    if not any(tag in head for tag in (b"<rss", b"<feed", b"<rdf")):
-        raise HTTPException(status_code=415, detail="not an RSS/Atom feed")
-    return Response(content=data, media_type="application/xml")
-
-
-@app.get("/config.js")
-def demo_config():
-    """Defaults for the demo pages. The key is only handed out when
-    LAYA_DEMO_PUBLIC=1: then anyone with the URL can use the demos (and the API)."""
-    key = API_KEY if os.environ.get("LAYA_DEMO_PUBLIC") == "1" and API_KEY else ""
-    js = "window.LAYA_DEFAULTS = { url: location.origin, key: %s };\n" % json.dumps(key)
-    return Response(content=js, media_type="application/javascript", headers={"Cache-Control": "no-store"})
-
-
 LLMS_TXT = """# Laya on Acurast
 
 > Laya is an open, non-generative "System 1" decision model: send it a state and
@@ -214,7 +251,7 @@ LLMS_TXT = """# Laya on Acurast
 
 Base URL: @BASE@
 Auth: header `Authorization: Bearer @KEY@`
-Speed: about 2-4 s per question (CPU on a phone). Context: about 512 tokens, English.
+Speed: about 0.3-1 s per question (CPU on a phone). Context: about 512 tokens, English.
 Model: https://huggingface.co/convaiinnovations/laya (Apache-2.0). Acurast: https://acurast.com
 
 ## Endpoints
@@ -254,24 +291,11 @@ Response (shortened):
 ## Tips
 
 - Put the facts in `state`; refer to its fields with backticks in instructions, e.g. `message`.
-- Fewer questions per request is faster: each question adds about 1-2 s here.
+- Fewer questions per request is faster: each question adds about 0.3-0.5 s here.
 - Give options short, distinct descriptions. Scores are more stable than yes/no.
 - Probabilities are not perfectly calibrated; treat low confidence as "unsure".
 - This URL changes when the deployment is redeployed.
 """
-
-
-@app.get("/llms.txt")
-def llms_txt(request: Request):
-    """How to use this instance, for AI agents (llmstxt.org). Uses the public URL
-    it was requested on; includes the key only in public demo mode."""
-    host = request.headers.get("host", "localhost")
-    base = ("http://" if host.startswith(("127.", "localhost")) else "https://") + host
-    key = API_KEY if os.environ.get("LAYA_DEMO_PUBLIC") == "1" and API_KEY else "<LAYA_API_KEY>"
-    text = LLMS_TXT.replace("@BASE@", base).replace("@KEY@", key)
-    _count("fetch", "llms.txt")
-    return Response(content=text, media_type="text/plain; charset=utf-8", headers={"Cache-Control": "no-store"})
-
 
 # Link previews (Open Graph / X cards) need absolute URLs and crawlers don't run
 # JavaScript, so the server adds them to every page it serves.
@@ -279,6 +303,7 @@ PAGES = {
     "index": ("Laya on Acurast: decisions made on a phone", "Snake, Tetris, a mail sorter, a dating app and more, every decision made by an open AI model on a phone in the Acurast Cloud."),
     "snake": ("Laya plays Snake", "Every move decided by an open AI model running on a phone in the Acurast Cloud."),
     "tetris": ("Laya plays Tetris", "An open AI model on a phone picks every placement."),
+    "doom": ("Laya plays Doom", "The real Doom engine with Freedoom; an open AI model on a phone picks every move."),
     "spam": ("Laya sorts the mail", "Inbox, spam or phishing? A phone in the Acurast Cloud reads your mail. No account, not logged."),
     "tinder": ("Laya swipes for you", "Tell it what you want in a partner for life. A phone swipes through history's strangest profiles."),
     "newsroom": ("Laya Newsroom", "News, satire, clickbait or manipulation? Judged by an open AI model on a phone. Bring any RSS feed."),
@@ -290,53 +315,199 @@ PAGES = {
 }
 
 
-def _page(request: Request, name: str):
-    path = os.path.join(DEMO_DIR, name + ".html")
-    if name not in PAGES or not os.path.isfile(path):
-        raise HTTPException(status_code=404)
-    host = request.headers.get("host", "localhost")
-    base = ("http://" if host.startswith(("127.", "localhost")) else "https://") + host
-    title, desc = PAGES[name]
-    esc = lambda t: t.replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;")
-    meta = (
-        f'<meta name="description" content="{esc(desc)}">'
-        f'<meta property="og:type" content="website"><meta property="og:site_name" content="Acurast">'
-        f'<meta property="og:title" content="{esc(title)}"><meta property="og:description" content="{esc(desc)}">'
-        f'<meta property="og:url" content="{base}/{name}.html">'
-        f'<meta name="twitter:site" content="@Acurast">'
-        f'<meta name="twitter:title" content="{esc(title)}"><meta name="twitter:description" content="{esc(desc)}">'
-    )
-    # Preview image only if it was deployed (the Hub playground doesn't copy images).
-    if os.path.isfile(os.path.join(DEMO_DIR, "og", name + ".png")):
-        meta += (f'<meta property="og:image" content="{base}/og/{name}.png">'
-                 f'<meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="{base}/og/{name}.png">')
-    else:
-        meta += '<meta name="twitter:card" content="summary">'
-    html = open(path, encoding="utf-8").read().replace("</head>", meta + "\n</head>", 1)
-    return Response(content=html, media_type="text/html; charset=utf-8")
+def _demo_key() -> str:
+    """The API key is only handed out when LAYA_DEMO_PUBLIC=1: then anyone with the URL
+    can use the demos (and the API)."""
+    return API_KEY if os.environ.get("LAYA_DEMO_PUBLIC") == "1" and API_KEY else ""
 
 
-@app.get("/")
-def index_page(request: Request):
-    return _page(request, "index")
+class Handler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+    server_version = "laya"
+    sys_version = ""
 
+    def log_message(self, *args):  # no per-request logs on the phone
+        pass
 
-@app.get("/{name}.html")
-def demo_page(request: Request, name: str):
-    return _page(request, name)
+    # ------------------------------------------------------------ plumbing
+    def _send(self, status: int, body: bytes = b"", ctype: str = "application/json", headers=None):
+        self.send_response(status)
+        # CORS only lets browsers make the request; it grants nothing without the key.
+        self.send_header("Access-Control-Allow-Origin", "*")
+        if body or status != 204:
+            self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        for k, v in (headers or {}).items():
+            self.send_header(k, v)
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(body)
 
+    def _json(self, obj, status: int = 200):
+        self._send(status, json.dumps(obj).encode())
 
-# Everything else of the demo pages (css, js, images), at / (mounted last so the API routes win).
-DEMO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "demos")
-if os.path.isdir(DEMO_DIR):
-    app.mount("/", StaticFiles(directory=DEMO_DIR, html=True), name="demos")
+    def _base(self) -> str:
+        host = self.headers.get("Host", "localhost")
+        return ("http://" if host.startswith(("127.", "localhost")) else "https://") + host
+
+    def _check_auth(self):
+        if API_KEY is not None and not hmac.compare_digest(self.headers.get("Authorization") or "", "Bearer " + API_KEY):
+            raise HTTPError(401, "invalid or missing bearer token")
+
+    def _handle(self, routes):
+        url = urllib.parse.urlsplit(self.path)
+        query = {k: v[0] for k, v in urllib.parse.parse_qs(url.query).items()}
+        try:
+            fn = routes.get(url.path)
+            if fn is not None:
+                fn(query)
+            elif self.command in ("GET", "HEAD"):
+                self._static(url.path)
+            else:
+                raise HTTPError(405, "method not allowed")
+        except HTTPError as e:
+            # The request body may be unread: close instead of reusing the connection.
+            self.close_connection = True
+            self._send(e.status, json.dumps({"detail": e.detail}).encode(), headers={"Connection": "close"})
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
+    def do_OPTIONS(self):  # CORS preflight
+        self._send(204, headers={"Access-Control-Allow-Methods": "GET, POST",
+                                 "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                                 "Access-Control-Max-Age": "600"})
+
+    def do_GET(self):
+        self._handle({"/health": self.health, "/hit": self.hit, "/stats": self.stats, "/instance": self.instance,
+                      "/feed": self.feed, "/config.js": self.config_js, "/llms.txt": self.llms_txt,
+                      "/": lambda q: self.page("index")})
+
+    do_HEAD = do_GET
+
+    def do_POST(self):
+        self._handle({"/v1/systemone": self.systemone, "/hit": self.hit})
+
+    # ------------------------------------------------------------ routes
+    def health(self, q):
+        if MODEL is None:
+            status = "error" if LOADING["phase"] == "error" else "loading"
+            return self._json({"status": status, "loaded": [], "device": "cpu", "progress": _progress()})
+        self._json({"status": "ok", "loaded": MODEL.loaded, "device": "cpu", "cores": MODEL.cores})
+
+    def systemone(self, q):
+        self._check_auth()
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            raise HTTPError(400, "invalid Content-Length")
+        if length > MAX_BODY_BYTES:
+            raise HTTPError(413, "request body too large")
+        try:
+            body = json.loads(self.rfile.read(length) or b"null")
+        except ValueError:
+            raise HTTPError(400, "request body must be valid JSON")
+        if not isinstance(body, dict) or "questions" not in body:
+            raise HTTPError(400, "request body must be an object with a 'questions' field")
+        state, questions = body.get("state"), body["questions"]
+        if not isinstance(questions, dict):
+            raise HTTPError(400, "'questions' must be an object")
+        if len(questions) > MAX_QUESTIONS:
+            raise HTTPError(413, "too many questions (%d > %d)" % (len(questions), MAX_QUESTIONS))
+        state_len = len(state) if isinstance(state, str) else len(json.dumps(state, default=str))
+        if state_len > MAX_STATE_CHARS:
+            raise HTTPError(413, "state too large (%d > %d chars)" % (state_len, MAX_STATE_CHARS))
+        if MODEL is None:
+            p = _progress()
+            raise HTTPError(503, f"the model is still {p['phase']} on the phone ({p['percent']}%)")
+        try:
+            result = MODEL.predict(state, questions)
+        except ValueError as e:  # question validation errors name the question and what to fix
+            raise HTTPError(422, str(e))
+        except Exception:  # noqa: BLE001 -- never leak paths/weights/OOM text to clients
+            traceback.print_exc()  # the phone's log only
+            raise HTTPError(500, "inference failed")
+        DECISIONS["count"] += 1
+        _count("decision", q.get("demo") or "api")
+        self._json(result)
+
+    def hit(self, q):
+        """Page events from the demos (view, share, outgoing clicks). Counted, not logged."""
+        _count(q.get("e", "view"), q.get("p", "?"))
+        self._send(204)
+
+    def stats(self, q):
+        self._json({"decisions": DECISIONS["count"], "uptime_s": int(time.time() - STARTED), "events": EVENTS,
+                    "instance": {k: INSTANCE.get(k) for k in ("country", "chip", "deployment_id")}})
+
+    def instance(self, q):
+        """Public facts about the phone serving this, for the demo pages' badge."""
+        self._json({**INSTANCE, "decisions": DECISIONS["count"], "uptime_s": int(time.time() - STARTED)})
+
+    def feed(self, q):
+        self._check_auth()
+        if "url" not in q:
+            raise HTTPError(422, "missing 'url'")
+        req = urllib.request.Request(_public_url(q["url"]), headers={"User-Agent": "laya-demo/1.0 (+rss)"})
+        try:
+            with _opener.open(req, timeout=15) as resp:
+                data = resp.read(MAX_FEED_BYTES)
+        except HTTPError:
+            raise
+        except Exception as e:  # noqa: BLE001 -- report fetch problems to the page
+            raise HTTPError(502, f"feed fetch failed: {e}")
+        # Only pass through things that look like feeds: this is not a general web fetcher.
+        if not any(tag in data[:4000].lower() for tag in (b"<rss", b"<feed", b"<rdf")):
+            raise HTTPError(415, "not an RSS/Atom feed")
+        self._send(200, data, "application/xml")
+
+    def config_js(self, q):
+        js = "window.LAYA_DEFAULTS = { url: location.origin, key: %s };\n" % json.dumps(_demo_key())
+        self._send(200, js.encode(), "application/javascript", {"Cache-Control": "no-store"})
+
+    def llms_txt(self, q):
+        """How to use this instance, for AI agents (llmstxt.org). Uses the public URL
+        it was requested on; includes the key only in public demo mode."""
+        text = LLMS_TXT.replace("@BASE@", self._base()).replace("@KEY@", _demo_key() or "<LAYA_API_KEY>")
+        _count("fetch", "llms.txt")
+        self._send(200, text.encode(), "text/plain; charset=utf-8", {"Cache-Control": "no-store"})
+
+    def page(self, name: str):
+        path = os.path.join(DEMO_DIR, name + ".html")
+        if name not in PAGES or not os.path.isfile(path):
+            raise HTTPError(404, "Not Found")
+        base = self._base()
+        title, desc = PAGES[name]
+        esc = lambda t: t.replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;")
+        meta = (
+            f'<meta name="description" content="{esc(desc)}">'
+            f'<meta property="og:type" content="website"><meta property="og:site_name" content="Acurast">'
+            f'<meta property="og:title" content="{esc(title)}"><meta property="og:description" content="{esc(desc)}">'
+            f'<meta property="og:url" content="{base}/{name}.html">'
+            f'<meta name="twitter:site" content="@Acurast">'
+            f'<meta name="twitter:title" content="{esc(title)}"><meta name="twitter:description" content="{esc(desc)}">'
+        )
+        # Preview image only if it was deployed (the Hub playground doesn't copy images).
+        if os.path.isfile(os.path.join(DEMO_DIR, "og", name + ".png")):
+            meta += (f'<meta property="og:image" content="{base}/og/{name}.png">'
+                     f'<meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="{base}/og/{name}.png">')
+        else:
+            meta += '<meta name="twitter:card" content="summary">'
+        with open(path, encoding="utf-8") as f:
+            html = f.read().replace("</head>", meta + "\n</head>", 1)
+        self._send(200, html.encode(), "text/html; charset=utf-8")
+
+    def _static(self, path: str):
+        """Demo pages get link previews; css, js and images are served as they are."""
+        if path.endswith(".html") and "/" not in path[1:]:
+            return self.page(path[1:-5])
+        full = os.path.realpath(os.path.join(DEMO_DIR, urllib.parse.unquote(path).lstrip("/")))
+        if not full.startswith(os.path.realpath(DEMO_DIR) + os.sep) or not os.path.isfile(full):
+            raise HTTPError(404, "Not Found")
+        with open(full, "rb") as f:
+            self._send(200, f.read(), mimetypes.guess_type(full)[0] or "application/octet-stream")
 
 
 if __name__ == "__main__":
-    uvicorn.run(
-        app,
-        host=os.environ.get("LAYA_HOST", "0.0.0.0"),
-        port=int(os.environ.get("LAYA_PORT", "8000")),
-        log_level=os.environ.get("LAYA_LOG_LEVEL", "info"),
-        access_log=False,  # no per-request logs on the phone
-    )
+    server = ThreadingHTTPServer((os.environ.get("LAYA_HOST", "0.0.0.0"), int(os.environ.get("LAYA_PORT", "8000"))), Handler)
+    server.daemon_threads = True
+    server.serve_forever()

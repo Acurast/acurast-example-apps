@@ -4,9 +4,9 @@
   Open this file in a browser, paste the deployment URL and LAYA_API_KEY, press Start.
   Two modes:
     step      - every Laya answer moves the snake one cell (the game waits for Laya).
-    real-time - the game runs at a fixed speed; since answers arrive seconds late,
-                Laya picks WHERE to turn ("keep going right until x=7, then turn up")
-                and the game executes the turn exactly at that cell.
+    real-time - the game runs at a fixed speed; since answers arrive after the snake
+                has moved on, Laya picks WHERE to turn (straight onto the food, toward
+                it, or away) and the game executes the turn exactly at that cell.
 -->
 <html lang="en">
 <head>
@@ -59,8 +59,8 @@
 <script src="config.js"></script>
 <script src="laya.js"></script>
 <script>
-// Field size is chosen in the UI. In real-time mode the snake covers ~9 cells
-// while each answer is on its way, so bigger fields leave more room to plan.
+// Field size is chosen in the UI. In real-time mode the snake keeps moving while
+// each answer is on its way, so bigger fields leave more room to plan.
 let N = 12, S = 480 / N;
 const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 const ARROWS = { up: '↑', down: '↓', left: '←', right: '→' };
@@ -147,10 +147,12 @@ async function stepLoop(id) {
     const toward = safe.filter(d => { const [x, y] = add(snake[0], d); return Math.abs(x - food[0]) + Math.abs(y - food[1]) < Math.abs(hx - food[0]) + Math.abs(hy - food[1]); });
     let d;
     try {
+      // Each option says what it does; no board in the state. Short prompts are fast
+      // (~40 tokens, 0.2 s on a Pixel 7a vs 0.5 s) and Laya follows them more reliably.
       d = await ask(
-        { food: foodText(), moves_toward_food: toward.length ? toward : ['none'], safe_moves: safe, current_heading: heading },
-        'The snake must eat the food. Which move brings it closer to the food? Prefer a move listed in `moves_toward_food`.',
-        Object.fromEntries(safe.map(m => [m, DESCRIPTIONS[m]])),
+        '',
+        'Which move brings the snake closer to the food?',
+        Object.fromEntries(safe.map(m => [m, toward.includes(m) ? 'closer to the food' : 'away from the food'])),
       );
     } catch (e) { return gameOver('Laya request failed: ' + e.message); }
     if (!running || id !== game) return;
@@ -165,7 +167,7 @@ async function stepLoop(id) {
 // ---------------------------------------------------------------- real-time mode
 // Cells the snake covers while waiting for an answer, plus a margin.
 function lead() {
-  const avg = moves ? totalMs / moves : 4000;
+  const avg = moves ? totalMs / moves : 1000; // until the first answer: ~0.2 s model + network
   return Math.ceil((avg * 1.3) / +speedIn.value) + 1;
 }
 // Signed distance from the head to cell c along the current heading.
@@ -185,7 +187,7 @@ function turnOptions() {
   const ks = [...new Set([kFood, maxK, L].filter(k => k !== null && k >= Math.max(1, L) && k <= maxK))].sort((a, b) => a - b);
   const opts = {};
   if (kFood !== null && food[1 - ai] === head[1 - ai]) {
-    opts.straight = { straight: true, text: `keep going ${heading}, the food is straight ahead` };
+    opts.straight = { straight: true, effect: 'the food is straight ahead', text: `keep going ${heading}, the food is straight ahead` };
   }
   for (const k of ks) {
     const cell = add(head, heading, k);
@@ -196,7 +198,8 @@ function turnOptions() {
       if (k === kFood) text += ', lining up with the food';
       text += toFood ? ', turning toward the food' : ', turning away from the food';
       if (k === maxK && k !== kFood) text += ' (last cell before the wall)';
-      opts[`${d}@${axis}=${cell[ai]}`] = { cell, dir: d, text };
+      const effect = k === kFood && toFood ? 'turns straight onto the food' : toFood ? 'turns toward the food' : 'turns away from the food';
+      opts[`${d}@${axis}=${cell[ai]}`] = { cell, dir: d, text, effect };
     }
   }
   return opts;
@@ -216,16 +219,18 @@ async function planLoop(id) {
     if (plan) { await sleep(30); continue; }
     const opts = turnOptions();
     if (!Object.keys(opts).length) { await sleep(+speedIn.value); continue; }
+    // One option per effect, the earliest cell wins (opts are in cell order), and the
+    // effect is the option itself: ids like `up@x=5` would put coordinates back into the
+    // prompt, and options with the same text are a coin flip for Laya. On a Pixel 7a
+    // this took decisions from 1.1 s to 0.2 s and the best turn from 28% to 95%.
+    const byEffect = {};
+    for (const [k, o] of Object.entries(opts)) byEffect[o.effect] ??= k;
     let d;
     try {
-      d = await ask(
-        { grid: `${N}x${N}, x grows to the right, y grows downward`, snake_head: `x=${snake[0][0]}, y=${snake[0][1]}`, heading, food: `x=${food[0]}, y=${food[1]}` },
-        'Plan the snake\'s next turn so it reaches the food without hitting a wall. Prefer the turn that lines up with the food and turns toward it.',
-        Object.fromEntries(Object.entries(opts).map(([k, o]) => [k, o.text])),
-      );
+      d = await ask('', 'Which turn gets the snake to the food fastest?', Object.keys(byEffect));
     } catch (e) { return gameOver('Laya request failed: ' + e.message); }
     if (!running || id !== game) return;
-    const o = opts[d.id];
+    const o = opts[byEffect[d.id]];
     last = { ...d, text: o ? o.text : d.id };
     if (o && !o.straight) {
       if (along(o.cell) >= 0) plan = { cell: o.cell, dir: o.dir };

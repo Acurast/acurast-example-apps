@@ -193,35 +193,34 @@ async function judge(story) {
   $('stamp').className = 'stamp';
   paper.classList.remove('out');
   pressRun(true);
-  let res;
+  // Two requests: the category first, so the stamp lands after ~1.4 s on a Pixel 7a, then
+  // the four meters (~5 s). Asked together, the stamp waited for all five answers (6.7 s).
+  const state = { headline: story.head, text: (story.body || '').slice(0, 900) };
+  let res, meters;
   try {
-    res = await Laya.ask(
-      { headline: story.head, text: (story.body || '').slice(0, 900) },
-      {
-        kind: { type: 'choice', instructions: 'Which category fits this news item best?', criteria: cats },
-        ...Object.fromEntries(SIGNALS.map(g => [g.key, { type: 'score', instructions: g.q, criteria: g.levels }])),
-      },
-    );
+    res = await Laya.ask(state, { kind: { type: 'choice', instructions: 'Which category fits this news item best?', criteria: cats } });
+    const { answers: a, ms } = res, kind = a.kind.choice;
+    totalMs += ms;
+    // Only examples whose label is still one of your categories count toward accuracy.
+    const gradable = story.truth && story.truth in cats;
+    const ok = gradable ? kind === story.truth : true;
+    if (gradable) { graded++; if (ok) correct++; }
+    const st = $('stamp');
+    st.textContent = kind.toUpperCase().replace(/_/g, ' '); st.style.color = st.style.borderColor = stampColor(kind); st.classList.add('on');
+    paper.classList.remove('flash'); void paper.offsetWidth; paper.classList.add('flash');
+    $('dateline').textContent = `No. ${n}  ·  ${where}  ·  judged in ${ms} ms`;
+    $('meters').innerHTML = '<span class="muted">measuring the signals...</span>';
+    $('log').textContent = `Laya: ${kind}${gradable && !ok ? `   (written as ${story.truth})` : ''}\n` +
+      `avg ${Math.round(totalMs / n)} ms   accuracy on examples ${correct}/${graded}\n\n${Laya.probs(a.kind.probabilities)}`;
+    const li = document.createElement('div');
+    li.textContent = `${kind.toUpperCase().padEnd(13)} ${story.source ? `[${story.source}] ` : story.truth ? '' : '[yours] '}${story.head}` + (gradable && !ok ? `  (was ${story.truth})` : '');
+    if (!ok) li.className = 'wrong';
+    $('history').prepend(li);
+    meters = (await Laya.ask(state, Object.fromEntries(SIGNALS.map(g => [g.key, { type: 'score', instructions: g.q, criteria: g.levels }])))).answers;
   } finally { pressRun(false); }
-  const { answers: a, ms } = res, kind = a.kind.choice;
-  totalMs += ms;
-  // Only examples whose label is still one of your categories count toward accuracy.
-  const gradable = story.truth && story.truth in cats;
-  const ok = gradable ? kind === story.truth : true;
-  if (gradable) { graded++; if (ok) correct++; }
-  const st = $('stamp');
-  st.textContent = kind.toUpperCase().replace(/_/g, ' '); st.style.color = st.style.borderColor = stampColor(kind); st.classList.add('on');
-  paper.classList.remove('flash'); void paper.offsetWidth; paper.classList.add('flash');
-  $('dateline').textContent = `No. ${n}  ·  ${where}  ·  judged in ${ms} ms`;
-  showSignals(a);
-  $('log').textContent = `Laya: ${kind}${gradable && !ok ? `   (written as ${story.truth})` : ''}\n` +
-    `avg ${Math.round(totalMs / n)} ms   accuracy on examples ${correct}/${graded}\n\n${Laya.probs(a.kind.probabilities)}`;
-  const li = document.createElement('div');
-  li.textContent = `${kind.toUpperCase().padEnd(13)} ${story.source ? `[${story.source}] ` : story.truth ? '' : '[yours] '}${story.head}` + (gradable && !ok ? `  (was ${story.truth})` : '');
-  if (!ok) li.className = 'wrong';
-  $('history').prepend(li);
-  Laya.offerShare({ kicker: story.head, big: kind.toUpperCase().replace(/_/g, ' '),
-    detail: SIGNALS.map(g => `${g.label} ${a[g.key].score.toFixed(1)}/4`).join(' · ') }, $('log'));
+  showSignals(meters);
+  Laya.offerShare({ kicker: story.head, big: res.answers.kind.choice.toUpperCase().replace(/_/g, ' '),
+    detail: SIGNALS.map(g => `${g.label} ${meters[g.key].score.toFixed(1)}/4`).join(' · ') }, $('log'));
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function printNext() {

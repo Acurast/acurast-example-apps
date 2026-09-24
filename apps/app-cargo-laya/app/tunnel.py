@@ -19,8 +19,6 @@ import time
 import traceback
 from urllib import request as urlrequest
 
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import ec
 
 # Network-specific values. Pick the set matching $NETWORK (see .env). Keep the
 # `network` field in acurast.json in sync with this — the CLI does not read $NETWORK.
@@ -144,17 +142,23 @@ def generate_tunnel_identity_pkcs8_b64():
 
     Required by TunnelSpec.primaryKey.bytes.
     """
-    key = ec.generate_private_key(ec.SECP256R1())
-    pkcs8 = key.private_bytes(
-        encoding=serialization.Encoding.DER,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption(),
-    )
+    # openssl CLI instead of the `cryptography` package. genpkey's DER is SEC1
+    # ("EC PRIVATE KEY"), so convert it to PKCS#8 explicitly.
+    sec1 = subprocess.run(
+        ["openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256", "-outform", "DER"],
+        check=True, capture_output=True,
+    ).stdout
+    pkcs8 = subprocess.run(
+        ["openssl", "pkcs8", "-topk8", "-nocrypt", "-inform", "DER", "-outform", "DER"],
+        input=sec1, check=True, capture_output=True,
+    ).stdout
     return base64.b64encode(pkcs8).decode("ascii")
 
 
 def main():
-    key_b64 = generate_tunnel_identity_pkcs8_b64()
+    # A fixed key gives a fixed URL: the relay derives the subdomain from the public key
+    # (tools/tunnel_key.sh prints it). Without one, every start gets a new random URL.
+    key_b64 = os.environ.get("TUNNEL_KEY") or generate_tunnel_identity_pkcs8_b64()
     spec = {
         "serverAddrs": TUNNEL_RELAYS,
         "domainSuffix": DOMAIN_SUFFIX,
