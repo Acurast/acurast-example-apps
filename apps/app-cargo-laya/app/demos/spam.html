@@ -21,7 +21,7 @@
   .letter .stamp { position: absolute; right: 12px; top: 10px; font: bold 18px ui-monospace, monospace; padding: 2px 8px;
                    border: 3px solid; transform: rotate(8deg); opacity: 0; }
   .letter .stamp.on { opacity: 0.9; transition: opacity 0.2s; }
-  .fly { position: fixed; z-index: 10; transition: transform 0.7s ease-in, opacity 0.7s ease-in; pointer-events: none; }
+  .fly { position: fixed; z-index: 10; transition: transform 0.4s ease-in, opacity 0.4s ease-in; pointer-events: none; }
   .bins { display: flex; gap: 12px; flex-wrap: wrap; }
   .bin { width: 210px; height: 420px; border: 2px dashed #444; padding: 10px; display: flex; flex-direction: column; }
   .bin h4 { margin: 0 0 8px; }
@@ -74,7 +74,7 @@ const MAILS = [
   { truth: 'spam', from: 'deals@mega-discount-outlet.biz', subject: '90% OFF designer watches, TODAY ONLY', body: 'Luxury replica watches at unbeatable prices! Free worldwide shipping. Click now, stock is limited!!! Unsubscribe impossible.' },
   { truth: 'phishing', from: 'security@paypa1-support.com', subject: 'Your account has been suspended', body: 'We detected unusual activity. Verify your identity within 24 hours at http://paypa1-verify.co/login or your account will be permanently closed.' },
   { truth: 'inbox', from: 'anna.keller@company.example', subject: "Slides for Thursday's review", body: 'Hi, I attached the updated slides for Thursday. Could you check page 4 before noon? Thanks, Anna' },
-  { truth: 'spam', from: 'winner@global-email-lottery.win', subject: 'CONGRATULATIONS you won $1,000,000', body: 'Your email address was selected in our international lottery. To release the prize, simply pay a small processing fee of $49.' },
+  { truth: 'phishing', from: 'winner@global-email-lottery.win', subject: 'CONGRATULATIONS you won $1,000,000', body: 'Your email address was selected in our international lottery. To release the prize, simply pay a small processing fee of $49.' },
   { truth: 'phishing', from: 'it-helpdesk@yourcompany-it.support', subject: 'Mailbox 99% full: action required', body: 'Your mailbox storage is almost full. Log in with your email and password on the page below to increase your quota, or new mail will be rejected.' },
   { truth: 'inbox', from: 'landlord@flat-rentals.example', subject: 'Heating maintenance on Tuesday', body: 'Hello, a technician will service the heating on Tuesday between 9 and 12. Please make sure someone can open the door. Best regards, M. Frei' },
   { truth: 'spam', from: 'signals@crypto-moon-alpha.io', subject: 'This coin will 100x next week', body: 'Our insiders found the next big coin. Buy before the whales do! Join our VIP group for only 0.1 BTC and never work again.' },
@@ -142,7 +142,6 @@ const TEMPLATES = {
   ],
   spam: [
     () => ({ from: `deals@${slug(pick(G.product))}-outlet.biz`, subject: `${num(60, 95)}% OFF ${pick(G.product)} TODAY ONLY`, body: `Unbeatable prices on ${pick(G.product)}! Only ${num(3, 19)} left in stock. Free shipping worldwide, click now before it is gone!!!` }),
-    () => ({ from: 'winner@prize-draw-center.win', subject: `You won ${num(1, 9)},000,000!`, body: `Your email was selected in our international draw. To release your prize just pay a small processing fee of ${num(19, 99)}.` }),
     () => ({ from: `coach@${slug(pick(G.scheme))}-academy.io`, subject: `Make ${num(2, 9)}000 a week with ${pick(G.scheme)}`, body: `I quit my job thanks to ${pick(G.scheme)}. Join my free masterclass, only ${num(10, 50)} seats left. No experience needed!` }),
     () => ({ from: 'offers@local-home-deals.biz', subject: 'Homeowners in your area are saving big', body: `New government-backed program: get solar panels, heat pumps or windows for FREE. Limited funds, check if you qualify in 30 seconds.` }),
     () => ({ from: 'rewards@survey-rewards.info', subject: `Answer ${num(3, 5)} questions, win ${pick(G.product)}`, body: `You were selected for our customer survey. Complete it in 60 seconds and claim your reward. Offer ends tonight!` }),
@@ -151,6 +150,7 @@ const TEMPLATES = {
     () => ({ from: 'health@miracle-supplements.shop', subject: `Lose ${num(5, 15)} kg without dieting`, body: `This natural formula melts fat while you sleep. Doctors hate it! Order 3 bottles, get 1 free.` }),
   ],
   phishing: [
+    () => ({ from: 'winner@prize-draw-center.win', subject: `You won ${num(1, 9)},000,000!`, body: `Your email was selected in our international draw. To release your prize just pay a small processing fee of ${num(19, 99)}.` }),
     () => { const b = pick(G.brand); return { from: `security@${slug(b)}-account${pick(G.scamTld)}`, subject: 'Unusual sign-in activity', body: `We detected a sign-in to your ${b} account from an unknown device. If this was not you, confirm your password at the link below within ${num(12, 48)} hours.` }; },
     () => { const b = pick(G.brand); return { from: `billing@${slug(b)}-payments${pick(G.scamTld)}`, subject: 'Payment declined: update your card', body: `We could not process your last ${b} payment. Update your card details now to avoid losing access to your account.` }; },
     () => ({ from: `delivery@parcel-track${pick(G.scamTld)}`, subject: 'Your parcel is on hold', body: `Your parcel could not be delivered. Pay the ${num(1, 3)}.${num(10, 99)} redelivery fee with your card to choose a new date.` }),
@@ -209,16 +209,17 @@ function scene(px, frame, flip, envelopes) {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function postmanRun(n) {
   $('status').textContent = 'The postman is coming...';
-  for (let x = -30, f = 0; x <= 196; x += 3, f++) { scene(x, (f >> 2) & 1, false, 0); await sleep(30); }
-  for (let i = 1; i <= n; i++) { scene(196, 0, false, i); await sleep(140); }
+  for (let x = -30, f = 0; x <= 196; x += 4, f++) { scene(x, (f >> 2) & 1, false, 0); await sleep(16); }
+  for (let i = 1; i <= n; i++) { scene(196, 0, false, i); await sleep(60); }
   $('status').textContent = `${n} letters in the mailbox.`;
-  for (let x = 196, f = 0; x >= -30; x -= 3, f++) { scene(x, (f >> 2) & 1, true, n); await sleep(30); }
+  for (let x = 196, f = 0; x >= -30; x -= 4, f++) { scene(x, (f >> 2) & 1, true, n); await sleep(16); }
   scene(null, 0, false, n);
 }
 
 // ---------------------------------------------------------------- sorting
-// Short descriptions sort better than long ones: on a Pixel 7a these got 33 of the 40
-// example mails right (the longer ones 25) with 20% fewer tokens.
+// Short descriptions sort better than long ones. With the question "Is this email real,
+// junk, or a scam?" and the fields sender/subject/text, these got 144 of 160 mails right
+// (90%); "Which folder does this email belong in?" with from/subject/body got 129.
 const FOLDERS = {
   inbox: 'genuine personal or work email',
   spam: 'advertising or junk offers',
@@ -236,8 +237,8 @@ function showLetter(m) {
 async function sortOne(m) {
   showLetter(m);
   const { answers, ms } = await Laya.ask(
-    { from: m.from, subject: m.subject, body: m.body },
-    { folder: { type: 'choice', instructions: 'Which folder does this email belong in?', criteria: FOLDERS } },
+    { sender: m.from, subject: m.subject, text: m.body },
+    { folder: { type: 'choice', instructions: 'Is this email real, junk, or a scam?', criteria: FOLDERS } },
   );
   // Your own letters have no true label, so they don't count toward accuracy.
   const a = answers.folder, folder = a.choice, ok = m.truth ? folder === m.truth : true;
@@ -250,7 +251,7 @@ async function sortOne(m) {
   $('log').textContent = `Laya: ${folder} (${ms} ms, avg ${Math.round(totalMs / sorted)} ms)` +
     `${m.truth ? (ok ? '' : `   actually ${m.truth}`) : '   (your letter)'}\n` +
     `accuracy on the example mails ${correct}/${graded}\n\n${Laya.probs(a.probabilities)}`;
-  await sleep(900);
+  await sleep(450);
   await flyTo(letter, $('bin-' + folder));
   const bin = $('bin-' + folder), li = document.createElement('li');
   li.textContent = (m.truth ? (ok ? '✓ ' : '✗ ') : 'yours: ') + m.subject + (ok ? '' : `  (was ${m.truth})`);
@@ -271,15 +272,15 @@ async function flyTo(el, bin) {
   await sleep(20);
   ghost.style.transform = `translate(${b.left + b.width / 2 - a.left - a.width / 2}px, ${b.top + 30 - a.top - a.height / 2}px) scale(0.1)`;
   ghost.style.opacity = '0.3';
-  await sleep(720);
+  await sleep(420);
   ghost.remove();
 }
 
 $('deliver').onclick = async () => {
   if (busy) return;
   busy = true; $('deliver').disabled = true;
-  while (pool.length < 6) refillPool();
-  bag = pool.splice(0, 6);
+  while (pool.length < 10) refillPool();
+  bag = pool.splice(0, 10);
   await postmanRun(bag.length);
   await sortBag();
 };
