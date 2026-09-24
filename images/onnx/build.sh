@@ -30,13 +30,24 @@ docker run --platform linux/arm64 --name "$NAME" "alpine:$ALPINE" sh -euc '
     rm -rf /var/cache/apk/* /root/.cache
 '
 
-# One top-level directory, like the proot-distro images: the processor strips the
-# first entry'"'"'s directory name from every path.
-rm -rf "$OUT/rootfs" && mkdir -p "$OUT/rootfs/$NAME"
-docker export "$NAME" | tar -x -C "$OUT/rootfs/$NAME" 2>/dev/null || true
+# One top-level directory, like the proot-distro images: the processor strips the first
+# entry's directory name from every path. Repacked inside a container: macOS tar adds
+# AppleDouble "._*" entries, and a "._<dir>" first entry left the rootfs one level down
+# ("No executable shell found." on every processor).
+docker export "$NAME" | docker run --rm -i --platform linux/arm64 "alpine:$ALPINE" sh -c "
+    apk add -q --no-cache tar xz >/dev/null
+    mkdir -p /r/$NAME && tar -x -C /r/$NAME 2>/dev/null; rm -f /r/$NAME/.dockerenv
+    tar -c -C /r $NAME | xz -T0 -9" > "$OUT/$NAME.tar.xz"
 docker rm "$NAME" >/dev/null
-rm -f "$OUT/rootfs/$NAME/.dockerenv"
-tar -C "$OUT/rootfs" -cf - "$NAME" | xz -T0 -9 > "$OUT/$NAME.tar.xz"
-rm -rf "$OUT/rootfs"
+# What processors check: the first entry is the one top-level directory, bin/sh is there.
+python3 - "$OUT/$NAME.tar.xz" "$NAME" <<'PY'
+import sys, tarfile
+with tarfile.open(sys.argv[1]) as t:
+    names = t.getnames()
+assert names[0].rstrip("/") == sys.argv[2], f"first entry is {names[0]!r}, not the top-level directory"
+assert not [n for n in names if n.split("/")[-1].startswith("._")], "AppleDouble ._ entries in the archive"
+assert f"{sys.argv[2]}/bin/sh" in names, "no bin/sh"
+print("rootfs layout ok:", len(names), "entries")
+PY
 ls -l "$OUT/$NAME.tar.xz"
 shasum -a 256 "$OUT/$NAME.tar.xz"

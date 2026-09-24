@@ -6,8 +6,8 @@
       "entrypoint": "start.sh",
       "runtime": "Shell",
       "image": {
-        "url": "https://cdn.papers.tech/files/cargo-laya/b302053beeab0b969302656f0ee2c54158367b1074306ab3b00a8b101c8476b0/onnx-base/acurast-onnx-alpine3.24.2-aarch64.tar.xz",
-        "sha256": "b302053beeab0b969302656f0ee2c54158367b1074306ab3b00a8b101c8476b0"
+        "url": "https://cdn.papers.tech/files/cargo-laya/6a30706ca972b93e071984af05fcf6fafcb3e7dd6d89ae486b860c193513b90e/onnx-base/acurast-onnx-alpine3.24.2-aarch64.tar.xz",
+        "sha256": "6a30706ca972b93e071984af05fcf6fafcb3e7dd6d89ae486b860c193513b90e"
       },
       "network": "mainnet",
       "onlyAttestedDevices": true,

@@ -1,13 +1,13 @@
 # Acurast ONNX base image (Cargo)
 
-A small rootfs for Cargo (Shell runtime) jobs that run ONNX models on the phone's CPU: Alpine 3.24, Python 3.14, ONNX Runtime 1.24, numpy, tokenizers, plus openssl, Dropbear and curl for the Acurast tunnel, SSH and callbacks. 47 MB download, 218 MB unpacked, no compiler, no PyTorch.
+A small rootfs for Cargo (Shell runtime) jobs that run ONNX models on the phone's CPU: Alpine 3.24, Python 3.14, ONNX Runtime 1.24, numpy, tokenizers, plus openssl, Dropbear and curl for the Acurast tunnel, SSH and callbacks. 46 MB download, 218 MB unpacked, no compiler, no PyTorch.
 
 There is no model inside: apps download their weights at start (see [app-cargo-laya](../../apps/app-cargo-laya)), so one image serves every ONNX app and the processor caches it by sha256.
 
 ```json
 "image": {
-  "url": "https://cdn.papers.tech/files/cargo-laya/b302053beeab0b969302656f0ee2c54158367b1074306ab3b00a8b101c8476b0/onnx-base/acurast-onnx-alpine3.24.2-aarch64.tar.xz",
-  "sha256": "b302053beeab0b969302656f0ee2c54158367b1074306ab3b00a8b101c8476b0"
+  "url": "https://cdn.papers.tech/files/cargo-laya/6a30706ca972b93e071984af05fcf6fafcb3e7dd6d89ae486b860c193513b90e/onnx-base/acurast-onnx-alpine3.24.2-aarch64.tar.xz",
+  "sha256": "6a30706ca972b93e071984af05fcf6fafcb3e7dd6d89ae486b860c193513b90e"
 }
 ```
 
