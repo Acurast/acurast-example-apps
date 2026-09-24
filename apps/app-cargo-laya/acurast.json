@@ -37,7 +37,6 @@
       "minProcessorReputation": 0,
       "maxCostPerExecution": 300000000000,
       "includeEnvironmentVariables": [
-        "CALLBACK_URL",
         "NETWORK",
         "SSH_PASSWORD",
         "LAYA_API_KEY",
