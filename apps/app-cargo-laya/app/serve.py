@@ -66,6 +66,7 @@ def _fetch(path: str, size: int, sha256: str):
         return
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     part, url = dest + ".part", MODEL_URL.format(sha256=sha256, path=path)
+    last_error = None
     for attempt in range(8):
         have = os.path.getsize(part) if os.path.exists(part) else 0
         base = LOADING["done_bytes"]
@@ -86,8 +87,13 @@ def _fetch(path: str, size: int, sha256: str):
             break
         except Exception as e:  # noqa: BLE001 -- a dropped connection: resume after a pause
             LOADING["done_bytes"] = base
-            print(f"model download {path}: {e}; retrying", flush=True)
+            last_error = f"{type(e).__name__}: {e}"
+            LOADING["error"] = f"retrying {path} ({attempt + 1}/8): {last_error}"  # shown on /health
+            print(f"model download {path}: {last_error}; retrying", flush=True)
             time.sleep(min(30, 2 ** attempt))
+    else:
+        raise RuntimeError(f"download of {path} from {url} failed 8 times: {last_error}")
+    LOADING["error"] = None
     h = hashlib.sha256()
     with open(part, "rb") as f:
         while chunk := f.read(1 << 20):

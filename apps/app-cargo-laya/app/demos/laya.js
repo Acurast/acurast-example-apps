@@ -66,8 +66,9 @@ const Laya = (() => {
       document.body.prepend(el);
     }
     const pct = Math.max(0, Math.min(100, p.percent || 0));
-    el.innerHTML = p.error
+    el.innerHTML = p.phase === 'error'
       ? `The model failed to load on the phone: ${esc(p.error)}`
+      : p.error ? `The model download on the phone is retrying: ${esc(p.error)}`
       : `${p.phase === 'loading' ? 'Loading the model into memory' : `The model is downloading on the phone: ${pct}% (${p.done_mb} / ${p.total_mb} MB)`}. ` +
         `Decisions start as soon as it's ready.<div style="height:4px;margin-top:6px;background:#333"><div style="height:4px;width:${pct}%;background:var(--lime,#b4e600)"></div></div>`;
   }
