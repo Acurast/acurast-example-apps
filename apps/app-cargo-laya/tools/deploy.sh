@@ -40,13 +40,16 @@ log() { echo "[$(date +%H:%M:%S)] $*" >&2; }
 # Temporary project: this app, the .env, and acurast.json with 1 replica, the duration and the price.
 cp -R "$ROOT/app" "$ROOT/.env" "$WORK/"
 node -e '
-const fs = require("fs"), [src, dst, days, perDay] = process.argv.slice(1);
+const fs = require("fs"), [src, dst, days, perDay, env] = process.argv.slice(1);
 const config = JSON.parse(fs.readFileSync(src)), c = config.projects["cargo-laya"];
 c.numberOfReplicas = 1;
 c.execution = { type: "onetime", maxExecutionTimeInMs: Math.round(days * 86400000) };
 c.maxCostPerExecution = Math.round(days * perDay * 1e12);
+// LAYA_PUBLIC_URL is optional (the CLI refuses listed variables that are unset): send it only when .env sets it.
+if (/^LAYA_PUBLIC_URL=\S/m.test(fs.readFileSync(env, "utf8")) && !c.includeEnvironmentVariables.includes("LAYA_PUBLIC_URL"))
+  c.includeEnvironmentVariables.push("LAYA_PUBLIC_URL");
 fs.writeFileSync(dst, JSON.stringify(config, null, 2));
-' "$ROOT/acurast.json" "$WORK/acurast.json" "$DAYS" "$PER_DAY"
+' "$ROOT/acurast.json" "$WORK/acurast.json" "$DAYS" "$PER_DAY" "$WORK/.env"
 mkdir -p "$ROOT/.acurast"
 log "$N instance(s), $DAYS days, max $(awk "BEGIN{print $DAYS * $PER_DAY}") ACU each$FILTERS"
 

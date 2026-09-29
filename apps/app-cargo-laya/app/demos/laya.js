@@ -186,9 +186,12 @@ const Laya = (() => {
     if (/(^|\.)acurast\.com$/.test(host)) { a.href = tag(a.href); hit('out:' + host.split('.')[0]); }
   }, true);
 
-  // The running instance's public link for this page, tagged for shares.
+  // This page's public link, tagged for shares: the load balancer's URL when the phone has
+  // one (LAYA_PUBLIC_URL), else the running instance's.
   function shareLink(source) {
-    const base = /^https?:/.test(location.protocol) ? location.origin + location.pathname : config().url + '/' + PAGE + '.html';
+    const pub = (window.LAYA_DEFAULTS || {}).share;
+    const base = pub ? pub + '/' + PAGE + '.html'
+      : /^https?:/.test(location.protocol) ? location.origin + location.pathname : config().url + '/' + PAGE + '.html';
     return `${base}?utm_source=${source}&utm_medium=share&utm_campaign=laya&utm_content=${PAGE}`;
   }
   const pageName = () => document.title.replace(/\s*·\s*Acurast$/, '');
