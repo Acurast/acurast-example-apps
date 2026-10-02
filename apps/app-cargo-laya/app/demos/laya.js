@@ -261,6 +261,7 @@ const Laya = (() => {
   const EMBED = new URLSearchParams(location.search).has('embed');
   function brand() {
     const home = PAGE === 'index';
+    const demo = !['index', 'api', 'stats'].includes(PAGE);  // "Share on X" only on the demos themselves
     // Favicon for every page.
     const icon = document.createElement('link'); icon.rel = 'icon'; icon.type = 'image/svg+xml'; icon.href = svgUrl(FAVICON_SVG);
     document.head.appendChild(icon);
@@ -282,11 +283,11 @@ const Laya = (() => {
         <a class="home" href="index.html"><div><div class="brand">LAYA <b>DEMOS</b></div>
         <div class="tag"><span class="dot"></span>decisions made on a phone in the Acurast Cloud</div></div></a>
         <div class="spacer"></div><div class="acu-phone"></div>${home ? '' : '<a class="all" href="index.html">&larr; <span>all demos</span></a>'}
-        <button class="share" title="Share on X">Share <span>on</span> 𝕏</button>
+        ${demo ? '<button class="share" title="Share on X">Share <span>on</span> 𝕏</button>' : ''}
         <button class="gear" title="Settings" aria-label="Settings">&#9881;</button>`;
       document.body.prepend(h);
       h.querySelector('.gear').onclick = () => panel.showModal();
-      h.querySelector('.share').onclick = () => shareOnX();
+      if (demo) h.querySelector('.share').onclick = () => shareOnX();
 
       const f = document.createElement('footer');
       f.className = 'acu-footer';
