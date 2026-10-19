@@ -5,7 +5,7 @@
 #   tools/tunnel_key.sh           new key: prints TUNNEL_KEY=... for .env and its URL
 #   tools/tunnel_key.sh <key>     the URL for an existing TUNNEL_KEY
 set -eu
-SUFFIX=${DOMAIN_SUFFIX:-acu.run}
+SUFFIX=${DOMAIN_SUFFIX:-mainnet.acu.run}
 if [ $# -eq 0 ]; then
     # PKCS#8, as the processor's tunnel expects (genpkey's DER alone is SEC1).
     KEY=$(openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -outform DER \

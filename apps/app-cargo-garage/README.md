@@ -123,7 +123,7 @@ cp .env.example .env
 | --- | --- | --- |
 | `ACURAST_MNEMONIC` | yes | Deployer seed phrase. **Do not commit.** |
 | `NETWORK` | yes | Target network: `canary` or `mainnet`. Selects the tunnel relays at runtime. Must match the `network` field in `acurast.json`. |
-| `DOMAIN_SUFFIX_CANARY` / `DOMAIN_SUFFIX_MAINNET` | no | **Optional** custom domain suffix, one per network. When unset, falls back to the network default (`acu.run` / `canary.acu.run`). If set, the matching var must also be listed in `acurast.json`'s `includeEnvironmentVariables`. |
+| `DOMAIN_SUFFIX_CANARY` / `DOMAIN_SUFFIX_MAINNET` | no | **Optional** custom domain suffix, one per network. When unset, falls back to the network default (`mainnet.acu.run` / `canary.acu.run`). If set, the matching var must also be listed in `acurast.json`'s `includeEnvironmentVariables`. |
 | `SSH_PASSWORD` | no (default `password`) | Root password for the dropbear SSH session. **Set a strong value.** |
 | `CALLBACK_URL` | no | Webhook for `log`/`started`/`error`/`credentials` events. |
 | `GARAGE_BUCKET` | no (default `bucket`) | Bucket created on first start. |

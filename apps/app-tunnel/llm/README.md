@@ -65,7 +65,7 @@ Copy `.env.example` to `.env` and fill in your own values. **Never commit `.env`
 | ------------------ | ---------------------------------------------------------------------------------------------------- |
 | `ACURAST_MNEMONIC` | Your Acurast deployer wallet mnemonic.                                                               |
 | `NETWORK`          | Target network: `canary` or `mainnet`. Selects the tunnel relays at runtime. **Must match the `network` field in `acurast.json`.** |
-| `DOMAIN_SUFFIX_CANARY` / `DOMAIN_SUFFIX_MAINNET` | **Optional** custom domain suffix, one per network. When unset, falls back to the network default (`acu.run` / `canary.acu.run`). If set, the matching var must also be listed in `acurast.json`'s `includeEnvironmentVariables`. |
+| `DOMAIN_SUFFIX_CANARY` / `DOMAIN_SUFFIX_MAINNET` | **Optional** custom domain suffix, one per network. When unset, falls back to the network default (`mainnet.acu.run` / `canary.acu.run`). If set, the matching var must also be listed in `acurast.json`'s `includeEnvironmentVariables`. |
 | `CALLBACK_URL`     | An HTTP endpoint that receives lifecycle events (including the tunnel URL). Use your own receiver.    |
 
 > The callback exists because the tunnel subdomain is derived from an ephemeral

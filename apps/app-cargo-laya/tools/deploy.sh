@@ -4,7 +4,7 @@
 #   tools/deploy.sh <instances> <days> [--min-cpu N] [--min-cpu-multi N] [--acu-per-day X] [--wait]
 #
 # Prints a JSON array on stdout, one entry per instance:
-#   [{"instance": 1, "deployment_id": "175212", "url": "https://<id>.acu.run",
+#   [{"instance": 1, "deployment_id": "175212", "url": "https://<id>.mainnet.acu.run",
 #     "registered_s": 38, "acknowledged_s": 81, "ready_s": 284}, ...]
 # (ready_s, the time until /health reports the model loaded, only with --wait.)
 # Progress goes to stderr. Each instance's TUNNEL_KEY is appended to

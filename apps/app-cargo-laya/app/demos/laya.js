@@ -24,7 +24,7 @@ const Laya = (() => {
     d.className = 'acu-settings';
     d.innerHTML = `<form method="dialog">
       <h3>Settings</h3>
-      <label>Deployment URL<input data-k="laya-url" placeholder="https://&lt;id&gt;.acu.run"></label>
+      <label>Deployment URL<input data-k="laya-url" placeholder="https://&lt;id&gt;.mainnet.acu.run"></label>
       <label>API key (LAYA_API_KEY)<input data-k="laya-key" type="password"></label>
       <p class="muted">Prefilled from config.js. Saved in this browser, shared by all demos.</p>
       <div class="row"><button type="button" data-test>Test connection</button><span data-status class="muted"></span>

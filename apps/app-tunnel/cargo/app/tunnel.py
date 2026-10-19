@@ -27,8 +27,21 @@ NETWORKS = {
     "mainnet": {
         "relays": [
             "relay-1.mainnet.acurast.com:4433",
+            "relay-mainnet-acurast.5elementsnodes.com:4433",
+            "acurast-mainnet-relay.dishich.com:4433",
+            "relay-mainnet.el9-acurast.com:4433",
+            "mainnet-relay.vincent-acurast.xyz:4433",
+            "relay.acurast.rubynodes.io:4433",
+            "acurast-relay.paradoxxllc.com:4433",
+            "tunnel-acurast.ultraops.dev:4433",
+            "acurast-mainnet-relay.icebergnodes.io:4433",
+            "relay-mainnet.oulurecords.com:4433",
+            "acurast-relay-mainnet.certhum.com:4433",
+            "mainnet-relay.acurast.online:4433",
+            "tunnel-mainnet.acurastpulse.com:4433",
+            "relay.mainnet.dposkingdom.com:4433",
         ],
-        "domainSuffix": "acu.run",
+        "domainSuffix": "mainnet.acu.run",
     },
     "canary": {
         "relays": [
@@ -48,7 +61,7 @@ if NETWORK not in NETWORKS:
 TUNNEL_RELAYS = NETWORKS[NETWORK]["relays"]
 # DNS suffix you control (wildcard `*` + `_acu` TXT records published). Optional —
 # override per network via DOMAIN_SUFFIX_CANARY / DOMAIN_SUFFIX_MAINNET (see .env).
-# When unset, falls back to the network default (acu.run / canary.acu.run).
+# When unset, falls back to the network default (mainnet.acu.run / canary.acu.run).
 _DOMAIN_ENV = f"DOMAIN_SUFFIX_{NETWORK.upper()}"
 DOMAIN_SUFFIX = os.environ.get(_DOMAIN_ENV) or NETWORKS[NETWORK]["domainSuffix"]
 # Primary (ACME) tunnel serves the web page; secondary (self-signed) maps to SSH.

@@ -21,7 +21,7 @@ local port each connection forwards to — `localAddr` for the web page, `second
 
 Once the tunnel is up:
 
-- Open the **web URL** (primary, `https://<clientId>.<DOMAIN_SUFFIX>`) in a browser. Unless a custom one is configured, `DOMAIN_SUFFIX` is `acu.run` for `mainnet` or `canary.acu.run` for `canary`.
+- Open the **web URL** (primary, `https://<clientId>.<DOMAIN_SUFFIX>`) in a browser. Unless a custom one is configured, `DOMAIN_SUFFIX` is `mainnet.acu.run` for `mainnet` or `canary.acu.run` for `canary`.
 - SSH in over the **secondary** URL:
 
 ```bash

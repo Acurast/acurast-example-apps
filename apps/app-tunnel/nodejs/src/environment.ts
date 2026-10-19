@@ -15,7 +15,22 @@ const NETWORKS: Record<string, NetworkConfig> = {
         rpcEndpoints: ['wss://public-rpc.canary.acurast.com'],
     },
     mainnet: {
-        tunnelRelays: ['relay-1.mainnet.acurast.com:4433'],
+        tunnelRelays: [
+            'relay-1.mainnet.acurast.com:4433',
+            'relay-mainnet-acurast.5elementsnodes.com:4433',
+            'acurast-mainnet-relay.dishich.com:4433',
+            'relay-mainnet.el9-acurast.com:4433',
+            'mainnet-relay.vincent-acurast.xyz:4433',
+            'relay.acurast.rubynodes.io:4433',
+            'acurast-relay.paradoxxllc.com:4433',
+            'tunnel-acurast.ultraops.dev:4433',
+            'acurast-mainnet-relay.icebergnodes.io:4433',
+            'relay-mainnet.oulurecords.com:4433',
+            'acurast-relay-mainnet.certhum.com:4433',
+            'mainnet-relay.acurast.online:4433',
+            'tunnel-mainnet.acurastpulse.com:4433',
+            'relay.mainnet.dposkingdom.com:4433',
+        ],
         rpcEndpoints: ['wss://public-rpc.mainnet.acurast.com'],
     },
 }
