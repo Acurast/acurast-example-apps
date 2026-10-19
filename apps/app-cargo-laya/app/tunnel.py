@@ -175,7 +175,7 @@ def main():
     info = rpc_call("tunnel_start", [spec])
     url = info.get("url")
     client_id = info.get("clientId")
-    web_url = url or f"https://{client_id}.{DOMAIN_SUFFIX}:8443"
+    web_url = url or f"https://{client_id}.{DOMAIN_SUFFIX}"
     ssh_url = info.get("secondaryUrl")
     ssh_client_id = info.get("secondaryClientId")
     report_log(f"Tunnel started: web url={web_url} clientId={client_id}")
