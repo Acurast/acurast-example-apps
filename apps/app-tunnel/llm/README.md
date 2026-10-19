@@ -36,7 +36,7 @@ running on an Acurast processor.
 ```
 Acurast processor (Shell runtime / proot)
   └─ llama-server :8080            (Qwen2.5-3B-Instruct-Q4_K_M)
-       └─ Acurast reverse tunnel   →  https://<clientId>.<your-tunnel-domain>:8443
+       └─ Acurast reverse tunnel   →  https://<clientId>.<your-tunnel-domain>
             └─ registered as a NodeGhost BYOM endpoint
                  └─ POST https://<gateway>/v1/chat/completions
                       →  routed over the tunnel  →  inference on the processor
@@ -116,13 +116,13 @@ The `started` event looks like:
 ```json
 {
   "event": "started",
-  "url": "https://<clientId>.<your-tunnel-domain>:8443",
+  "url": "https://<clientId>.<your-tunnel-domain>",
   "port": 8080
 }
 ```
 
 Copy the `url` from the `started` event (it is the public tunnel URL on port
-`8443`), then register it with NodeGhost as a BYOM endpoint and send a request:
+`443`), then register it with NodeGhost as a BYOM endpoint and send a request:
 
 ```bash
 # Register the tunnel URL as a BYOM endpoint (omit endpoint_key —
@@ -130,7 +130,7 @@ Copy the `url` from the `started` event (it is the public tunnel URL on port
 curl -X POST https://<gateway>/v1/endpoint/register \
   -H "Authorization: Bearer <your-key>" \
   -H "Content-Type: application/json" \
-  -d '{"endpoint_url": "https://<clientId>.<your-tunnel-domain>:8443", "endpoint_name": "acurast-tunnel-llm"}'
+  -d '{"endpoint_url": "https://<clientId>.<your-tunnel-domain>", "endpoint_name": "acurast-tunnel-llm"}'
 
 # Send an OpenAI-compatible chat request through the gateway.
 curl https://<gateway>/v1/chat/completions \

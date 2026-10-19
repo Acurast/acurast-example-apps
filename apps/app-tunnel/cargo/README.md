@@ -27,7 +27,7 @@ Once the tunnel is up:
 ```bash
 ssh -o ProxyCommand='openssl s_client -quiet \
   -servername <secondaryClientId>.<DOMAIN_SUFFIX> \
-  -connect <secondaryClientId>.<DOMAIN_SUFFIX>:8443' \
+  -connect <secondaryClientId>.<DOMAIN_SUFFIX>:443' \
   root@<secondaryClientId>
 ```
 
