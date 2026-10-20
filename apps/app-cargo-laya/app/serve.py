@@ -7,7 +7,9 @@ Env: LAYA_HOST, LAYA_PORT, LAYA_API_KEY (bearer token, required by start.sh),
 LAYA_MODEL_DIR (default /root/laya-model; downloaded there on first start),
 LAYA_MODEL_URL (override, with {sha256} and {path}), LAYA_THREADS (default: one per
 performance core; the efficiency cores are left out),
-LAYA_DEMO_PUBLIC=1 to hand the key to the demo pages.
+LAYA_DEMO_PUBLIC=1 to hand the key to the demo pages, LAYA_PUBLIC_URL (e.g.
+https://laya.acurast.com) for share links and link previews when a load balancer
+sits in front (default: the URL the page was requested on).
 
 GET /feed?url=<rss or atom url> fetches a news feed server-side, because most
 feeds don't send CORS headers. Same bearer token; public http(s) hosts only.
@@ -32,6 +34,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from laya_onnx import Laya
 
 API_KEY = os.environ.get("LAYA_API_KEY") or None
+PUBLIC_URL = (os.environ.get("LAYA_PUBLIC_URL") or "").rstrip("/")
 MAX_FEED_BYTES = 2_000_000
 # Guardrails for remote input, same limits as laya.serve.
 MAX_QUESTIONS = 64
@@ -347,6 +350,8 @@ class Handler(BaseHTTPRequestHandler):
         self._send(status, json.dumps(obj).encode())
 
     def _base(self) -> str:
+        if PUBLIC_URL:
+            return PUBLIC_URL
         host = self.headers.get("Host", "localhost")
         return ("http://" if host.startswith(("127.", "localhost")) else "https://") + host
 
@@ -461,7 +466,8 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, data, "application/xml")
 
     def config_js(self, q):
-        js = "window.LAYA_DEFAULTS = { url: location.origin, key: %s };\n" % json.dumps(_demo_key())
+        js = "window.LAYA_DEFAULTS = { url: location.origin, key: %s, share: %s };\n" % (
+            json.dumps(_demo_key()), json.dumps(PUBLIC_URL or None))
         self._send(200, js.encode(), "application/javascript", {"Cache-Control": "no-store"})
 
     def llms_txt(self, q):
