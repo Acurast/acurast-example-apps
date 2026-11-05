@@ -14,6 +14,7 @@ An overview of the examples available in this repository.
 | [fetch](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-fetch)                 | Use fetch to get data from an API and post it to another API  | TS, CLI, Acurast Runtime Variables |
 | [heic-to-png](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-heic-to-png)     | Convert HEIC images to PNG                                    | TS, CLI                            |
 | [llm](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-llm)                     | Run an LLM on Acurast                                         | TS, CLI, LLM Server, Webserver     |
+| [llm-qwen](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-llm-qwen)           | Run Qwen3.5 on a phone behind an OpenAI-compatible HTTPS API  | JS, CLI, LLM Server, Tunnel        |
 | [p2p](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-p2p)                     | Connect to a processor over a P2P network                     | TS, CLI, P2P                       |
 | [puppeteer](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-puppeteer)         | Scrape the web using Puppeteer                                | TS, CLI, Multiple Deployments      |
 | [telegram-bot](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-telegram-bot)   | Run a telegram-bot                                            | TS, CLI                            |

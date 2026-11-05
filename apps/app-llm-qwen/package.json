@@ -1,0 +1,12 @@
+{
+  "name": "app-llm-qwen",
+  "version": "0.1.0",
+  "description": "Acurast example app: Qwen3.5 on a phone behind an OpenAI-compatible HTTPS endpoint",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "deploy": "acurast deploy"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,5 @@
+# Acurast CLI
+.acurast
+.env
+node_modules/
+storage/
