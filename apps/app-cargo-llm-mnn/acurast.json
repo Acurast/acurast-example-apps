@@ -35,14 +35,10 @@
       "minProcessorReputation": 0,
       "maxCostPerExecution": 300000000000,
       "includeEnvironmentVariables": [
-        "CALLBACK_URL",
         "NETWORK",
         "LLM_API_KEY",
         "TUNNEL_KEY",
-        "LLM_MODEL",
-        "LLM_THREADS",
-        "LLM_THINKING",
-        "SSH_PASSWORD"
+        "LLM_MODEL"
       ],
       "processorWhitelist": [],
       "benchmarkFilters": {

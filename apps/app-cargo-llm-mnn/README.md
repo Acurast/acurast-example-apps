@@ -19,6 +19,8 @@ MNN reading 7,000-token prompts on a Snapdragon 8 Elite-class phone with 16 GB R
 | Qwen3.5-4B | 72.3 tok/s |
 | Qwen3.5-9B | 35.9 tok/s |
 
+First deployment of this app, same day (mainnet, a 16 GB phone with 4+3+1 cores, Qwen3.5-4B): ready about a minute after the download started, model loaded in 5.9 s, 4 threads pinned to the 4 fast cores, chat and streaming worked through the tunnel. A 10,710-token prompt was answered in 474.5 s, about 22.6 tok/s for reading the prompt and writing the answer.
+
 ## How it works
 
 The job runs on the [proot-distro](https://github.com/termux/proot-distro) Ubuntu 25.10 rootfs (the MNN wheels need glibc). `app/start.sh` runs in two phases:
@@ -50,20 +52,27 @@ Until the model is loaded, the chat API answers `503`. Without `LLM_API_KEY` the
 
 ```bash
 cp .env.example .env    # set ACURAST_MNEMONIC and LLM_API_KEY (openssl rand -hex 16)
-tools/tunnel_key.sh     # prints TUNNEL_KEY=... for .env and the URL the phone will get
+tools/tunnel_key.sh     # prints TUNNEL_KEY=... for .env and the URL the phone will get (required)
 ```
 
-| Variable | Required | Description |
-| --- | --- | --- |
-| `ACURAST_MNEMONIC` | yes | Deployer seed phrase. **Do not commit.** |
-| `NETWORK` | yes | `mainnet` or `canary`. Selects the tunnel relays. Must match `network` in `acurast.json`. |
-| `LLM_API_KEY` | yes | Bearer token clients must send. |
-| `TUNNEL_KEY` | no | Fixes the URL (`tools/tunnel_key.sh`). Empty: a new random URL on every start, sent to `CALLBACK_URL`. One phone per key. |
-| `LLM_MODEL` | no | `0.8B`, `4B` (default) or `9B`. Change `minRamTotalBytes` with it (table below). |
-| `LLM_THREADS` | no | MNN threads. Default: 8 on phones without efficiency cores, else 4 (see Notes). Setting it also turns off the core pinning. |
-| `LLM_THINKING` | no | `1`: the model thinks before answering, unless a request turns it off. Default: direct answers. |
-| `CALLBACK_URL` | no | Webhook for lifecycle events (`log`, `started` with the URL, `ready`, `error`). |
-| `SSH_PASSWORD` | no | Starts SSH over the secondary tunnel connection. Empty: no SSH. |
+Required (listed in `includeEnvironmentVariables` in `acurast.json`):
+
+| Variable | Description |
+| --- | --- |
+| `ACURAST_MNEMONIC` | Deployer seed phrase, read by the CLI and not sent to the phone. **Do not commit.** |
+| `NETWORK` | `mainnet` or `canary`. Selects the tunnel relays. Must match `network` in `acurast.json`. |
+| `LLM_API_KEY` | Bearer token clients must send. |
+| `TUNNEL_KEY` | Fixes the URL, so it is known before deploying (`tools/tunnel_key.sh`). One phone per key. |
+| `LLM_MODEL` | `0.8B`, `4B` (default) or `9B`. Change `minRamTotalBytes` with it (table below). |
+
+The CLI refuses to deploy while any name in `includeEnvironmentVariables` has no value, so the optional variables are not listed there. To use one, set it in `.env` **and** add its name to `includeEnvironmentVariables`, or it never reaches the phone:
+
+| Variable | Description |
+| --- | --- |
+| `LLM_THREADS` | MNN threads. Default: 8 on phones without efficiency cores, else 4 (see Notes). Setting it also turns off the core pinning. |
+| `LLM_THINKING` | `1`: the model thinks before answering, unless a request turns it off. Default: direct answers. |
+| `CALLBACK_URL` | Webhook for lifecycle events (`log`, `started` with the URL, `ready`, `error`). |
+| `SSH_PASSWORD` | Starts SSH over the secondary tunnel connection. Default: no SSH. |
 
 ### Deploy
 
