@@ -160,7 +160,7 @@ def _prepare():
         import MNN.llm as llm  # after main() redirected stdout: MNN prints on import
         m = llm.create(os.path.join(MODEL_DIR, "config.json"))
         # MNN builds its sampler in load(), so sampling is fixed here. The export ships 1.0 / 0.95 (meant
-        # for thinking); direct answers use 0.7 / 0.8. use_template: we apply the chat template ourselves.
+        # for thinking); direct answers use 0.7 / 0.8. use_template: off, this server applies the chat template itself.
         m.set_config({"thread_num": STATE["threads"], "use_template": False,
                       **({} if THINKING else {"temperature": 0.7, "topP": 0.8})})
         if m.load() is False:
