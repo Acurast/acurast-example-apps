@@ -14,6 +14,7 @@ An overview of the examples available in this repository.
 | [fetch](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-fetch)                 | Use fetch to get data from an API and post it to another API  | TS, CLI, Acurast Runtime Variables |
 | [heic-to-png](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-heic-to-png)     | Convert HEIC images to PNG                                    | TS, CLI                            |
 | [llm](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-llm)                     | Run an LLM on Acurast                                         | TS, CLI, LLM Server, Webserver     |
+| [llm-qwen](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-llm-qwen)           | Run Qwen3.5 on a phone behind an OpenAI-compatible HTTPS API  | JS, CLI, LLM Server, Tunnel        |
 | [p2p](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-p2p)                     | Connect to a processor over a P2P network                     | TS, CLI, P2P                       |
 | [puppeteer](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-puppeteer)         | Scrape the web using Puppeteer                                | TS, CLI, Multiple Deployments      |
 | [telegram-bot](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-telegram-bot)   | Run a telegram-bot                                            | TS, CLI                            |
@@ -54,6 +55,7 @@ connection and an SSH shell on the secondary (self-signed) connection.
 | [cargo-ssh](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-ssh)             | Open an interactive SSH session into a processor over a reverse tunnel         | Shell, Cargo, SSH, Tunnel         |
 | [cargo-garage](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-garage)       | Run a Garage S3-compatible object store, exposed over the Tunnel               | Shell, Cargo, Tunnel, SSH, S3     |
 | [cargo-hermes](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-hermes)       | Run the Hermes autonomous AI agent (WebUI + SSH) over the Tunnel               | Shell, Cargo, Tunnel, SSH, AI     |
+| [cargo-llm-mnn](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-llm-mnn)     | Run Qwen3.5 with MNN on a phone behind an OpenAI-compatible API over the Tunnel | Shell, Cargo, Tunnel, AI, LLM     |
 | [cargo-minecraft](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-minecraft) | Run a Minecraft Java server, exposed over the Tunnel                           | Shell, Cargo, Tunnel, SSH         |
 | [cargo-openclaw](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-openclaw)   | Run the OpenClaw AI assistant (Control UI + SSH) over the Tunnel               | Shell, Cargo, Tunnel, SSH, AI     |
 | [cargo-postgres](https://github.com/Acurast/acurast-example-apps/tree/main/apps/app-cargo-postgres)   | Run PostgreSQL with a browser SQL console + SSH, over the Tunnel               | Shell, Cargo, Tunnel, SSH, Postgres |

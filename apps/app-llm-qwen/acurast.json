@@ -1,0 +1,43 @@
+{
+  "projects": {
+    "llm-qwen": {
+      "projectName": "llm-qwen",
+      "fileUrl": "src",
+      "network": "mainnet",
+      "onlyAttestedDevices": true,
+      "assignmentStrategy": {
+        "type": "Single"
+      },
+      "execution": {
+        "type": "onetime",
+        "maxExecutionTimeInMs": 7200000
+      },
+      "maxAllowedStartDelayInMs": 10000,
+      "usageLimit": {
+        "maxMemory": 0,
+        "maxNetworkRequests": 0,
+        "maxStorage": 0
+      },
+      "numberOfReplicas": 1,
+      "requiredModules": [
+        "LLM"
+      ],
+      "minProcessorVersions": {
+        "android": "1.27.1"
+      },
+      "minProcessorReputation": 0,
+      "maxCostPerExecution": 300000000000,
+      "includeEnvironmentVariables": [
+        "NETWORK",
+        "TUNNEL_SEED",
+        "LLM_API_KEY"
+      ],
+      "processorWhitelist": [],
+      "benchmarkFilters": {
+        "minRamTotalBytes": 7500000000,
+        "minCpuSingleCoreScore": 140000000
+      },
+      "entrypoint": "index.js"
+    }
+  }
+}

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qwen3.5 on Acurast</title>
+<style>
+  :root { --bg:#f6f7f9; --fg:#1a1d21; --muted:#6b7280; --card:#ffffff; --line:#e3e6ea; --accent:#2f6fed; --user:#e8f0ff; --bot:#ffffff; --think:#f3f4f6; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0f1115; --fg:#e6e8eb; --muted:#9aa3ad; --card:#171a20; --line:#262b33; --accent:#5b8dff; --user:#1c2a44; --bot:#171a20; --think:#1d2129; } }
+  :root[data-theme="dark"] { --bg:#0f1115; --fg:#e6e8eb; --muted:#9aa3ad; --card:#171a20; --line:#262b33; --accent:#5b8dff; --user:#1c2a44; --bot:#171a20; --think:#1d2129; }
+  * { box-sizing:border-box } body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; height:100dvh; display:flex; flex-direction:column }
+  header { padding:10px 16px; border-bottom:1px solid var(--line); background:var(--card); display:flex; gap:12px; align-items:center; flex-wrap:wrap }
+  header h1 { font-size:15px; margin:0; font-weight:600 } header .meta { color:var(--muted); font-size:12px; flex:1; min-width:200px }
+  .badge { font-size:11px; padding:2px 8px; border-radius:999px; border:1px solid var(--line); color:var(--muted) } .badge.ok { color:#15803d; border-color:#15803d55 } .badge.bad { color:#b91c1c; border-color:#b91c1c55 }
+  main { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; max-width:860px; width:100%; margin:0 auto }
+  .msg { padding:10px 14px; border-radius:12px; max-width:92%; white-space:pre-wrap; word-wrap:break-word } .msg.user { align-self:flex-end; background:var(--user) } .msg.bot { align-self:flex-start; background:var(--bot); border:1px solid var(--line) }
+  .think { font-size:12px; color:var(--muted); background:var(--think); border-radius:8px; padding:6px 10px; margin-bottom:8px; white-space:pre-wrap; max-height:160px; overflow:auto } .think summary { cursor:pointer }
+  .stats { font-size:11px; color:var(--muted); margin-top:6px }
+  footer { border-top:1px solid var(--line); background:var(--card); padding:10px 16px } .row { display:flex; gap:8px; max-width:860px; margin:0 auto; align-items:flex-end }
+  textarea { flex:1; resize:none; min-height:44px; max-height:160px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--bg); color:var(--fg); font:inherit }
+  button { padding:10px 16px; border:0; border-radius:10px; background:var(--accent); color:#fff; font:inherit; cursor:pointer } button:disabled { opacity:.5; cursor:default } button.ghost { background:transparent; color:var(--muted); border:1px solid var(--line) }
+  .opts { display:flex; gap:14px; max-width:860px; margin:8px auto 0; font-size:12px; color:var(--muted); flex-wrap:wrap; align-items:center } .opts input[type=text],.opts input[type=password],.opts input[type=number] { padding:4px 8px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; font-size:12px }
+</style>
+</head>
+<body>
+<header>
+  <h1>Qwen3.5 on Acurast</h1>
+  <span id="status" class="badge">connecting…</span>
+  <div class="meta" id="meta">loading /info…</div>
+  <button class="ghost" id="clear">New chat</button>
+</header>
+<main id="log"></main>
+<footer>
+  <div class="row"><textarea id="input" placeholder="Message the phone… (Enter to send, Shift+Enter for newline)"></textarea><button id="send">Send</button></div>
+  <div class="opts">
+    <label>API key <input type="password" id="key" placeholder="LLM_API_KEY" size="22"></label>
+    <label><input type="checkbox" id="think"> thinking</label>
+    <label>max tokens <input type="number" id="max" value="400" min="16" max="4000" style="width:70px"></label>
+    <label>temp <input type="number" id="temp" value="0.7" min="0" max="2" step="0.1" style="width:60px"></label>
+    <span id="dev"></span>
+  </div>
+</footer>
+<script>
+const $ = (id) => document.getElementById(id);
+const BASE = location.origin;
+const history = [];
+let busy = false;
+try { $('key').value = localStorage.getItem('llmKey') || ''; $('think').checked = localStorage.getItem('llmThink') === '1'; } catch {}
+$('key').addEventListener('change', () => { try { localStorage.setItem('llmKey', $('key').value); } catch {} });
+$('think').addEventListener('change', () => { try { localStorage.setItem('llmThink', $('think').checked ? '1' : '0'); } catch {} });
+function add(role, text) { const d = document.createElement('div'); d.className = 'msg ' + role; d.textContent = text; $('log').appendChild(d); $('log').scrollTop = $('log').scrollHeight; return d; }
+async function refreshInfo() {
+  try {
+    const r = await fetch(BASE + '/info'); const i = await r.json();
+    const d = i.device || {}; const s = i.serving || {};
+    $('status').textContent = i.phase; $('status').className = 'badge ' + (i.phase === 'ready' ? 'ok' : i.phase === 'failed' ? 'bad' : '');
+    const dl = (i.downloads || []).map((x) => `${x.name.replace('Qwen3.5-9B-', '')} ${x.status === 'done' || x.status === 'cached' ? '✓' : ((x.bytes || 0) / 1e9).toFixed(1) + ' GB'}`).join(', ');
+    $('meta').textContent = `${i.phase === 'ready' ? `${s.model} · ${s.threads} threads · ctx ${s.ctxSize}` : `phase: ${i.phase}${dl ? ' · ' + dl : ''}`} · processor ${i.processorVersion} · slot ${i.slot}`;
+    $('dev').textContent = `phone ${(d.address || '').slice(0, 8)}… · ${d.nproc} cores · ${(d.totalMemBytes / 1e9).toFixed(1)} GB RAM · ${((i.freeMemBytes || 0) / 1e9).toFixed(2)} GB free`;
+    $('send').disabled = busy || i.phase !== 'ready';
+    if (i.phase !== 'ready') setTimeout(refreshInfo, 15000);
+  } catch (e) { $('status').textContent = 'unreachable'; $('status').className = 'badge bad'; setTimeout(refreshInfo, 15000); }
+}
+async function send() {
+  const text = $('input').value.trim(); if (!text || busy) return;
+  const key = $('key').value.trim(); if (!key) { add('bot', 'Enter the API key (LLM_API_KEY from .env) below first.'); return; }
+  busy = true; $('send').disabled = true; $('input').value = '';
+  add('user', text); history.push({ role: 'user', content: text });
+  const bot = add('bot', ''); const think = document.createElement('details'); think.className = 'think'; think.innerHTML = '<summary>thinking…</summary><div></div>'; const stats = document.createElement('div'); stats.className = 'stats';
+  let content = '', reasoning = '', t0 = Date.now(), tFirst = null, usage = null, timings = null;
+  try {
+    const res = await fetch(BASE + '/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key }, body: JSON.stringify({ model: 'qwen3.5', cache_prompt: true, messages: history, stream: true, max_tokens: Number($('max').value) || 400, temperature: Number($('temp').value), stream_options: { include_usage: true }, chat_template_kwargs: { enable_thinking: $('think').checked } }) });
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + (await res.text()).slice(0, 200));
+    const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
+    for (;;) {
+      const { value, done } = await reader.read(); if (done) break; buf += dec.decode(value, { stream: true }); let i;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1); if (!line.startsWith('data:') || line === 'data: [DONE]') continue;
+        let j; try { j = JSON.parse(line.slice(5)); } catch { continue; }
+        const delta = j.choices?.[0]?.delta || {};
+        if (delta.reasoning_content) { reasoning += delta.reasoning_content; if (!think.parentNode) bot.prepend(think); think.querySelector('div').textContent = reasoning; }
+        if (delta.content) { if (tFirst === null) tFirst = Date.now(); content += delta.content; bot.childNodes.forEach((n) => { if (n.nodeType === 3) n.remove(); }); bot.append(document.createTextNode(content)); }
+        if (j.usage) usage = j.usage; if (j.timings) timings = j.timings;
+        $('log').scrollTop = $('log').scrollHeight;
+      }
+    }
+    if (think.parentNode) think.querySelector('summary').textContent = 'thinking (' + reasoning.length + ' chars)';
+    const total = (Date.now() - t0) / 1000;
+    stats.textContent = `${usage?.completion_tokens ?? '?'} tokens · ${tFirst ? ((tFirst - t0) / 1000).toFixed(1) : '?'} s to first token · ${usage?.completion_tokens ? (usage.completion_tokens / total).toFixed(1) : '?'} tok/s end-to-end · ${timings?.predicted_per_second ? timings.predicted_per_second.toFixed(1) + ' tok/s on the phone' : ''}`;
+    bot.append(stats); history.push({ role: 'assistant', content });
+  } catch (e) { bot.textContent = 'Error: ' + e.message; history.pop(); }
+  busy = false; $('send').disabled = false; $('input').focus();
+}
+$('send').addEventListener('click', send);
+$('input').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+$('clear').addEventListener('click', () => { history.length = 0; $('log').innerHTML = ''; });
+refreshInfo();
+</script>
+</body>
+</html>
